@@ -1,0 +1,600 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LazyDrive — Gerador de backup do Google Drive</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f7f6f1;
+    --panel:#fffdf8;
+    --ink:#16201c;
+    --muted:#5d6b63;
+    --line:#e3e1d6;
+    --accent:#0b6e4f;
+    --accent-2:#12a87a;
+    --accent-soft:#e6f2ec;
+    --warn:#8a5a00;
+    --warn-soft:#fbf1dd;
+    --code-bg:#12201a;
+    --code-ink:#dfeee6;
+    --radius:14px;
+    --shadow:0 1px 2px rgba(22,32,28,.05),0 12px 30px -18px rgba(22,32,28,.35);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:
+      radial-gradient(1100px 520px at 88% -8%, rgba(18,168,122,.10), transparent 60%),
+      radial-gradient(900px 480px at -6% 4%, rgba(11,110,79,.07), transparent 55%),
+      var(--bg);
+    color:var(--ink);
+    font-family:"IBM Plex Sans",system-ui,sans-serif;
+    font-size:16px;
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  .wrap{max-width:840px;margin:0 auto;padding:34px 20px 80px}
+
+  header.top{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+  .brand{font-family:"Fraunces",serif;font-weight:600;font-size:34px;letter-spacing:-.02em;line-height:1}
+  .brand .lazy{color:var(--ink)}
+  .brand .drive{color:var(--accent)}
+  .tag{color:var(--muted);font-size:14.5px;letter-spacing:.01em}
+  .sub{color:var(--muted);font-size:15px;margin:10px 0 26px;max-width:62ch}
+
+  .card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    padding:24px 22px;
+  }
+  .field{margin-bottom:18px}
+  .field:last-child{margin-bottom:0}
+  label{display:block;font-weight:600;font-size:14px;margin-bottom:7px}
+  label .hint{display:block;font-weight:400;color:var(--muted);font-size:12.5px;margin-top:2px}
+  input[type=text]{
+    width:100%;border:1px solid var(--line);background:#fff;border-radius:10px;
+    padding:13px 14px;font-family:"IBM Plex Mono",monospace;font-size:13.5px;color:var(--ink);
+    transition:border-color .15s, box-shadow .15s;
+  }
+  input[type=text]:focus{outline:none;border-color:var(--accent-2);box-shadow:0 0 0 3px var(--accent-soft)}
+  input.bad{border-color:#c0392b;box-shadow:0 0 0 3px rgba(192,57,43,.1)}
+  .resolved{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--accent);margin-top:6px;min-height:16px;word-break:break-all}
+  .resolved.err{color:#c0392b}
+
+  .btn{
+    appearance:none;border:none;cursor:pointer;font-family:inherit;font-weight:600;font-size:15px;
+    padding:13px 20px;border-radius:11px;transition:transform .06s, background .15s, box-shadow .15s;
+  }
+  .btn:active{transform:translateY(1px)}
+  .btn-primary{background:var(--accent);color:#fff;box-shadow:0 8px 20px -10px rgba(11,110,79,.7)}
+  .btn-primary:hover{background:#0a5f44}
+  .btn-ghost{background:transparent;color:var(--accent);border:1px solid var(--line)}
+  .btn-ghost:hover{border-color:var(--accent-2);background:var(--accent-soft)}
+  .actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:22px}
+
+  /* Acordeão passo a passo */
+  details.guide{margin-top:22px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  details.guide>summary{
+    cursor:pointer;list-style:none;padding:16px 20px;font-weight:600;display:flex;align-items:center;gap:10px;
+  }
+  details.guide>summary::-webkit-details-marker{display:none}
+  .chev{transition:transform .2s;color:var(--accent)}
+  details[open] .chev{transform:rotate(90deg)}
+  .guide-body{padding:4px 22px 22px;border-top:1px solid var(--line)}
+  ol.steps{margin:14px 0 0;padding:0;counter-reset:s;list-style:none}
+  ol.steps li{position:relative;padding:0 0 16px 42px;color:var(--ink)}
+  ol.steps li:last-child{padding-bottom:0}
+  ol.steps li::before{
+    counter-increment:s;content:counter(s);position:absolute;left:0;top:-2px;
+    width:28px;height:28px;border-radius:50%;background:var(--accent-soft);color:var(--accent);
+    font-weight:600;font-size:13px;display:flex;align-items:center;justify-content:center;
+    font-family:"IBM Plex Mono",monospace;
+  }
+  ol.steps li b{font-weight:600}
+  ol.steps code{background:#eef1ee;border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-family:"IBM Plex Mono",monospace;font-size:12.5px}
+
+  .note{margin-top:14px;background:var(--warn-soft);border:1px solid #efdcb6;border-radius:10px;padding:12px 14px;font-size:13.5px;color:#5b4413}
+  .note b{color:var(--warn)}
+
+  /* Tela do resultado */
+  .hidden{display:none}
+  .result-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+  .result-head h2{font-family:"Fraunces",serif;font-weight:600;font-size:24px;margin:0;letter-spacing:-.01em}
+  .meta{display:grid;grid-template-columns:1fr;gap:8px;margin:16px 0 18px}
+  .meta .row{display:flex;gap:10px;font-size:13px;align-items:baseline;flex-wrap:wrap}
+  .meta .k{color:var(--muted);min-width:128px}
+  .meta .v{font-family:"IBM Plex Mono",monospace;color:var(--ink);word-break:break-all}
+  .meta .v.tag-name{color:var(--accent);font-weight:500}
+
+  .code-shell{position:relative;border-radius:var(--radius);overflow:hidden;border:1px solid #0d3327}
+  .code-bar{display:flex;align-items:center;justify-content:space-between;background:#0d2b22;color:#bcd9cd;padding:9px 14px;font-size:12.5px;font-family:"IBM Plex Mono",monospace}
+  .code-bar .fname{opacity:.85}
+  .copy{
+    appearance:none;border:1px solid #2c5a48;background:#10493a;color:#dffaf0;cursor:pointer;
+    font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:500;padding:6px 12px;border-radius:8px;
+    display:inline-flex;align-items:center;gap:7px;transition:background .15s;
+  }
+  .copy:hover{background:#15604c}
+  .copy.done{background:var(--accent-2);border-color:var(--accent-2);color:#06231a}
+  textarea#out{
+    width:100%;border:none;display:block;background:var(--code-bg);color:var(--code-ink);
+    font-family:"IBM Plex Mono",monospace;font-size:12.5px;line-height:1.6;padding:16px;resize:vertical;
+    height:420px;white-space:pre;overflow:auto;tab-size:2;
+  }
+  textarea#out:focus{outline:none}
+
+  footer{margin-top:34px;text-align:center;color:var(--muted);font-size:12.5px}
+  footer span{color:var(--accent)}
+  @media(max-width:520px){
+    .brand{font-size:28px}
+    .wrap{padding:24px 15px 64px}
+    textarea#out{height:340px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="brand"><span class="lazy">Lazy</span><span class="drive">Drive</span></div>
+    <div class="tag">gerador de backup recursivo para o Google Drive</div>
+  </header>
+  <p class="sub">Cole o link da pasta de origem e da pasta de destino. O LazyDrive gera o código pronto e limpo para você copiar e colar no Google Apps Script. Nada é baixado para o seu computador — tudo roda na infraestrutura do Google.</p>
+
+  <!-- TELA 1: ENTRADA -->
+  <section id="view-input">
+    <div class="card">
+      <div class="field">
+        <label for="src">Link da pasta de ORIGEM
+          <span class="hint">A pasta que será copiada. Aceita o link completo do Drive ou só o ID.</span>
+        </label>
+        <input type="text" id="src" autocomplete="off" spellcheck="false"
+               placeholder="https://drive.google.com/drive/folders/1AbCdEf...">
+        <div class="resolved" id="src-id"></div>
+      </div>
+
+      <div class="field">
+        <label for="dst">Link da pasta de DESTINO
+          <span class="hint">Onde o backup será criado. O log também será salvo aqui.</span>
+        </label>
+        <input type="text" id="dst" autocomplete="off" spellcheck="false"
+               placeholder="https://drive.google.com/drive/folders/1XyZw9...">
+        <div class="resolved" id="dst-id"></div>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-primary" id="gen">Gerar código</button>
+        <button class="btn btn-ghost" id="clear">Limpar</button>
+      </div>
+    </div>
+
+    <details class="guide" id="guide">
+      <summary>
+        <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        Passo a passo — não sabe o que fazer? Comece por aqui
+      </summary>
+      <div class="guide-body">
+        <ol class="steps">
+          <li>Cole os dois links acima e clique em <b>Gerar código</b>. Copie todo o código que aparecer.</li>
+          <li>Abra <code>script.google.com</code> e clique em <b>Novo projeto</b>.</li>
+          <li>Apague o conteúdo padrão (<code>function myFunction() {}</code>) e <b>cole o código gerado</b>.</li>
+          <li>No painel esquerdo, clique em <b>Serviços</b> (ícone <code>+</code>), procure <b>Drive API</b> e clique em <b>Adicionar</b>.</li>
+          <li>No seletor de funções no topo, escolha <code>iniciarBackup</code> e clique em <b>Executar</b>.</li>
+          <li>Na primeira execução o Google pede autorização: escolha sua conta &rarr; <b>Avançado</b> &rarr; <b>Acessar (não seguro)</b> &rarr; <b>Permitir</b>.</li>
+          <li>Acompanhe pela planilha de log criada dentro da pasta de destino. A <b>última linha</b> informa se o backup ficou 100% completo.</li>
+          <li>Se a pasta for grande, o script pausa e se reagenda sozinho até terminar — não precisa fazer nada. Para cancelar, execute <code>abortarBackup</code>.</li>
+        </ol>
+        <div class="note">
+          <b>Importante:</b> execute logado na conta que tem acesso de <b>leitura na origem</b> e de <b>escrita no destino</b>. Para Drive Compartilhado (Shared Drive) o código já está preparado. Conta Google gratuita tem limite de 6 minutos por execução — o checkpoint resolve isso automaticamente.
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <!-- TELA 2: RESULTADO -->
+  <section id="view-result" class="hidden">
+    <div class="result-head">
+      <h2>Código pronto</h2>
+      <button class="btn btn-ghost" id="back">&larr; Gerar outro</button>
+    </div>
+
+    <div class="meta">
+      <div class="row"><span class="k">ID de origem</span><span class="v" id="m-src"></span></div>
+      <div class="row"><span class="k">ID de destino</span><span class="v" id="m-dst"></span></div>
+      <div class="row"><span class="k">Planilha de log</span><span class="v tag-name" id="m-log">&lt;nome do destino&gt; backup</span></div>
+    </div>
+
+    <div class="code-shell">
+      <div class="code-bar">
+        <span class="fname">LazyDrive.gs &middot; cole no editor do Apps Script</span>
+        <button class="copy" id="copy">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          <span id="copy-label">Copiar código</span>
+        </button>
+      </div>
+      <textarea id="out" readonly spellcheck="false"></textarea>
+    </div>
+
+    <div class="note" style="margin-top:18px">
+      <b>Lembrete:</b> a planilha de log nasce com o nome <b>&laquo;nome da pasta de destino&raquo; + backup</b> e fica dentro da própria pasta de destino. A linha final da tabela traz a <b>CHECAGEM</b> comparando arquivos da origem x copiados, com o percentual e o veredito <b>BACKUP 100% COMPLETO</b> ou <b>INCOMPLETO</b>.
+    </div>
+  </section>
+
+  <footer>LazyDrive &middot; gera o código, você cola no <span>Google Apps Script</span>. Sem download, sem servidor.</footer>
+</div>
+
+<script>
+/* ====================== TEMPLATE DO APPS SCRIPT ======================
+   Placeholders __SOURCE_ID__ e __DEST_ID__ são substituídos na geração.
+   O código abaixo não usa crases nem ${ } para conviver com este template. */
+const TPL = `/**************************************************************************************
+ * LazyDrive — BACKUP RECURSIVO DE PASTA DO GOOGLE DRIVE
+ * Gerado automaticamente. Cole este arquivo no editor em script.google.com.
+ *
+ * Origem:  __SOURCE_ID__
+ * Destino: __DEST_ID__
+ *
+ * O QUE FAZ
+ *  - Copia toda a arvore (subpastas aninhadas) da origem para dentro do destino.
+ *  - Nao baixa nada para o computador: tudo roda na infraestrutura do Google.
+ *  - Suporta Drive Compartilhado (supportsAllDrives / includeItemsFromAllDrives).
+ *  - Checkpoint + retomada automatica por gatilho temporal (contorna o limite de 6/30 min).
+ *  - Cria a planilha de log com o nome "<NOME DA PASTA DE DESTINO> backup", dentro do destino.
+ *  - Ao final faz CHECAGEM independente e escreve no fim da tabela se 100% foi copiado.
+ *
+ * PRE-REQUISITOS
+ *  1) Estar logado na conta com acesso de LEITURA na origem e ESCRITA no destino.
+ *  2) Ativar o servico avancado: Editor > Servicos (+) > "Drive API" > Adicionar.
+ *
+ * COMO RODAR
+ *  - Selecione a funcao "iniciarBackup" e clique em Executar. Autorize quando pedir.
+ *  - Para cancelar e limpar o estado a qualquer momento: rode "abortarBackup".
+ **************************************************************************************/
+
+// ====================== CONFIGURACAO (ja preenchida) ======================
+const SOURCE_FOLDER_ID = '__SOURCE_ID__';
+const DEST_PARENT_ID   = '__DEST_ID__';
+
+const BATCH_LIMIT = 200;       // arquivos processados por pagina/volta
+const SAFETY_MS   = 300000;    // margem de 5 min antes do timeout (conta gratuita = 6 min)
+
+// chaves de estado persistente
+const P         = PropertiesService.getScriptProperties();
+const K_QUEUE   = 'lz_queue';
+const K_LOGID   = 'lz_logid';
+const K_ROOTID  = 'lz_rootid';
+const K_COPIED  = 'lz_copied';
+const K_RUNNING = 'lz_running';
+
+// ====================== PONTO DE ENTRADA ======================
+function iniciarBackup() {
+  limparGatilhos_();
+  P.deleteAllProperties();
+
+  const origem  = obterPasta_(SOURCE_FOLDER_ID);
+  const destino = obterPasta_(DEST_PARENT_ID);
+
+  // planilha de log: "<nome do destino> backup"
+  const logId = criarPlanilhaLog_(destino.name + ' backup', destino.id);
+  P.setProperty(K_LOGID, logId);
+
+  log_('INICIO', 'Origem: ' + origem.name + '  ->  Destino: ' + destino.name,
+       SOURCE_FOLDER_ID, DEST_PARENT_ID, 'iniciado');
+
+  // pasta-raiz do backup, criada dentro do destino
+  const rootName = origem.name + ' (backup ' + nowStamp_() + ')';
+  const rootId = criarSubpasta_(rootName, DEST_PARENT_ID);
+  P.setProperty(K_ROOTID, rootId);
+  P.setProperty(K_COPIED, '0');
+
+  const queue = [{ s: SOURCE_FOLDER_ID, d: rootId, t: null }];
+  P.setProperty(K_QUEUE, JSON.stringify(queue));
+
+  log_('PASTA', rootName, SOURCE_FOLDER_ID, rootId, 'pasta-raiz criada');
+  processar_();
+}
+
+// retomada automatica (chamada pelo gatilho temporal)
+function retomarBackup_() {
+  P.deleteProperty(K_RUNNING); // a execucao anterior ja morreu
+  processar_();
+}
+
+// ====================== NUCLEO ======================
+function processar_() {
+  if (P.getProperty(K_RUNNING) === '1') return; // evita concorrencia
+  P.setProperty(K_RUNNING, '1');
+
+  const inicio = Date.now();
+  let queue = JSON.parse(P.getProperty(K_QUEUE) || '[]');
+  let copiados = parseInt(P.getProperty(K_COPIED) || '0', 10);
+
+  try {
+    while (queue.length > 0) {
+      if (Date.now() - inicio > SAFETY_MS) {
+        P.setProperty(K_QUEUE, JSON.stringify(queue));
+        P.setProperty(K_COPIED, String(copiados));
+        P.deleteProperty(K_RUNNING);
+        agendarRetomada_();
+        log_('PAUSA', 'Tempo limite atingido — reagendando em 1 min', '-', '-',
+             copiados + ' arquivo(s) ate aqui');
+        return;
+      }
+
+      const par = queue[0];
+      const filhos = listarFilhos_(par.s, par.t);
+
+      // arquivos -> copia direto
+      filhos.arquivos.forEach(function (f) {
+        try {
+          Drive.Files.copy({ name: f.name, parents: [par.d] }, f.id, { supportsAllDrives: true });
+          copiados++;
+        } catch (e) {
+          log_('ERRO', f.name, f.id, par.d, 'falha ao copiar: ' + e.message);
+        }
+      });
+
+      // subpastas -> recria no destino e enfileira
+      filhos.pastas.forEach(function (sub) {
+        const novoId = criarSubpasta_(sub.name, par.d);
+        queue.push({ s: sub.id, d: novoId, t: null });
+        log_('PASTA', sub.name, sub.id, novoId, 'subpasta criada');
+      });
+
+      if (filhos.nextPageToken) {
+        par.t = filhos.nextPageToken;  // mesma pasta continua na proxima volta
+      } else {
+        queue.shift();                 // pasta concluida
+      }
+
+      P.setProperty(K_QUEUE, JSON.stringify(queue));
+      P.setProperty(K_COPIED, String(copiados));
+    }
+
+    finalizar_(copiados);
+  } catch (err) {
+    log_('ERRO', 'Falha geral na execucao', '-', '-', err.message);
+    P.deleteProperty(K_RUNNING);
+    throw err;
+  }
+}
+
+// ====================== FINALIZACAO + CHECAGEM 100% ======================
+function finalizar_(copiados) {
+  limparGatilhos_();
+  const rootId = P.getProperty(K_ROOTID);
+
+  const totalOrigem  = contarArquivos_(SOURCE_FOLDER_ID);
+  const totalDestino = contarArquivos_(rootId);
+
+  const pct = totalOrigem === 0 ? 100 : Math.round((totalDestino / totalOrigem) * 10000) / 100;
+  const ok  = totalDestino >= totalOrigem;
+
+  log_('CHECAGEM',
+       'Arquivos na origem: ' + totalOrigem + ' | copiados no destino: ' + totalDestino,
+       SOURCE_FOLDER_ID, rootId, pct + '%');
+
+  if (ok) {
+    log_('RESULTADO', 'BACKUP 100% COMPLETO', '-', '-',
+         'OK — todos os ' + totalOrigem + ' arquivo(s) foram copiados');
+  } else {
+    log_('RESULTADO', 'BACKUP INCOMPLETO', '-', '-',
+         'FALTARAM ' + (totalOrigem - totalDestino) + ' arquivo(s) — execute iniciarBackup novamente');
+  }
+
+  P.deleteProperty(K_RUNNING);
+  Logger.log('Concluido. Copiados=' + copiados +
+             ' | Origem=' + totalOrigem + ' | Destino=' + totalDestino + ' (' + pct + '%)');
+}
+
+// ====================== HELPERS DRIVE ======================
+function listarFilhos_(folderId, pageToken) {
+  const arquivos = [];
+  const pastas = [];
+  const resp = Drive.Files.list({
+    q: "'" + folderId + "' in parents and trashed = false",
+    pageSize: BATCH_LIMIT,
+    pageToken: pageToken || null,
+    fields: 'nextPageToken, files(id, name, mimeType)',
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+    corpora: 'allDrives'
+  });
+  (resp.files || []).forEach(function (f) {
+    if (f.mimeType === 'application/vnd.google-apps.folder') {
+      pastas.push({ id: f.id, name: f.name });
+    } else {
+      arquivos.push({ id: f.id, name: f.name });
+    }
+  });
+  return { arquivos: arquivos, pastas: pastas, nextPageToken: resp.nextPageToken || null };
+}
+
+function contarArquivos_(folderId) {
+  let total = 0;
+  const pilha = [folderId];
+  while (pilha.length > 0) {
+    const id = pilha.pop();
+    let token = null;
+    do {
+      const resp = Drive.Files.list({
+        q: "'" + id + "' in parents and trashed = false",
+        pageSize: 1000,
+        pageToken: token,
+        fields: 'nextPageToken, files(id, mimeType)',
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
+        corpora: 'allDrives'
+      });
+      (resp.files || []).forEach(function (f) {
+        if (f.mimeType === 'application/vnd.google-apps.folder') pilha.push(f.id);
+        else total++;
+      });
+      token = resp.nextPageToken;
+    } while (token);
+  }
+  return total;
+}
+
+function criarSubpasta_(nome, parentId) {
+  const novo = Drive.Files.create({
+    name: nome,
+    mimeType: 'application/vnd.google-apps.folder',
+    parents: [parentId]
+  }, null, { supportsAllDrives: true });
+  return novo.id;
+}
+
+function obterPasta_(id) {
+  return Drive.Files.get(id, { supportsAllDrives: true, fields: 'id, name, mimeType' });
+}
+
+// ====================== LOG ======================
+function criarPlanilhaLog_(nome, parentId) {
+  const ss = SpreadsheetApp.create(nome);
+  const sheet = ss.getActiveSheet();
+  sheet.setName('log');
+  sheet.appendRow(['Data/Hora', 'Tipo', 'Item', 'ID Origem', 'ID Destino', 'Status']);
+  sheet.getRange(1, 1, 1, 6).setFontWeight('bold');
+  sheet.setFrozenRows(1);
+  sheet.setColumnWidth(1, 150);
+  sheet.setColumnWidth(3, 280);
+  sheet.setColumnWidth(6, 320);
+  // move a planilha para dentro da pasta de destino
+  try {
+    Drive.Files.update({}, ss.getId(), null, {
+      addParents: parentId,
+      removeParents: 'root',
+      supportsAllDrives: true
+    });
+  } catch (e) { /* se nao conseguir mover, fica na raiz do Meu Drive */ }
+  return ss.getId();
+}
+
+function log_(tipo, item, idOrigem, idDestino, status) {
+  try {
+    const id = P.getProperty(K_LOGID);
+    if (!id) return;
+    SpreadsheetApp.openById(id).getSheetByName('log')
+      .appendRow([new Date(), tipo, item, idOrigem, idDestino, status]);
+  } catch (e) { /* nao interrompe o backup por falha de log */ }
+}
+
+// ====================== GATILHOS / UTIL ======================
+function agendarRetomada_() {
+  limparGatilhos_();
+  ScriptApp.newTrigger('retomarBackup_').timeBased().after(60 * 1000).create();
+}
+
+function limparGatilhos_() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'retomarBackup_') ScriptApp.deleteTrigger(t);
+  });
+}
+
+function nowStamp_() {
+  return Utilities.formatDate(new Date(),
+    Session.getScriptTimeZone() || 'America/Fortaleza', 'yyyy-MM-dd_HH-mm');
+}
+
+function abortarBackup() {
+  limparGatilhos_();
+  P.deleteAllProperties();
+  Logger.log('Backup abortado e estado limpo.');
+}
+`;
+
+/* ====================== LÓGICA DA PÁGINA ====================== */
+const $ = function (id) { return document.getElementById(id); };
+
+function extractId(input) {
+  if (!input) return '';
+  input = input.trim();
+  let m = input.match(/\/folders\/([-\w]{15,})/) || input.match(/[?&]id=([-\w]{15,})/);
+  if (m) return m[1];
+  m = input.match(/^([-\w]{15,})$/);
+  if (m) return m[1];
+  m = input.match(/[-\w]{20,}/);
+  return m ? m[0] : '';
+}
+
+function liveResolve(inputEl, outEl) {
+  const id = extractId(inputEl.value);
+  if (!inputEl.value.trim()) {
+    outEl.textContent = '';
+    outEl.classList.remove('err');
+    inputEl.classList.remove('bad');
+    return '';
+  }
+  if (id) {
+    outEl.textContent = 'ID detectado: ' + id;
+    outEl.classList.remove('err');
+    inputEl.classList.remove('bad');
+  } else {
+    outEl.textContent = 'Link inválido — cole o link completo da pasta do Drive.';
+    outEl.classList.add('err');
+    inputEl.classList.add('bad');
+  }
+  return id;
+}
+
+$('src').addEventListener('input', function () { liveResolve($('src'), $('src-id')); });
+$('dst').addEventListener('input', function () { liveResolve($('dst'), $('dst-id')); });
+
+$('gen').addEventListener('click', function () {
+  const srcId = liveResolve($('src'), $('src-id'));
+  const dstId = liveResolve($('dst'), $('dst-id'));
+  if (!srcId) { $('src').classList.add('bad'); $('src').focus(); return; }
+  if (!dstId) { $('dst').classList.add('bad'); $('dst').focus(); return; }
+  if (srcId === dstId) {
+    $('dst-id').textContent = 'Origem e destino não podem ser a mesma pasta.';
+    $('dst-id').classList.add('err'); $('dst').classList.add('bad'); return;
+  }
+
+  const code = TPL.split('__SOURCE_ID__').join(srcId).split('__DEST_ID__').join(dstId);
+  $('out').value = code;
+  $('m-src').textContent = srcId;
+  $('m-dst').textContent = dstId;
+
+  $('view-input').classList.add('hidden');
+  $('view-result').classList.remove('hidden');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+$('clear').addEventListener('click', function () {
+  $('src').value = ''; $('dst').value = '';
+  liveResolve($('src'), $('src-id')); liveResolve($('dst'), $('dst-id'));
+  $('src').focus();
+});
+
+$('back').addEventListener('click', function () {
+  $('view-result').classList.add('hidden');
+  $('view-input').classList.remove('hidden');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+$('copy').addEventListener('click', function () {
+  const ta = $('out');
+  const done = function () {
+    const lbl = $('copy-label'); const btn = $('copy');
+    lbl.textContent = 'Copiado'; btn.classList.add('done');
+    setTimeout(function () { lbl.textContent = 'Copiar código'; btn.classList.remove('done'); }, 2000);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(ta.value).then(done).catch(function () {
+      ta.focus(); ta.select(); document.execCommand('copy'); done();
+    });
+  } else {
+    ta.focus(); ta.select(); document.execCommand('copy'); done();
+  }
+});
+</script>
+</body>
+</html>
