@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>LazyDrive — Gerador de backup do Google Drive</title>
+<title>LazyDrive — Backup e verificação em lote do Google Drive</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -17,8 +17,12 @@
     --accent:#0b6e4f;
     --accent-2:#12a87a;
     --accent-soft:#e6f2ec;
+    --verify:#1f5f8b;
+    --verify-2:#3b82b8;
+    --verify-soft:#e8f1f8;
     --warn:#8a5a00;
     --warn-soft:#fbf1dd;
+    --danger:#b3261e;
     --code-bg:#12201a;
     --code-ink:#dfeee6;
     --radius:14px;
@@ -29,7 +33,7 @@
   body{
     background:
       radial-gradient(1100px 520px at 88% -8%, rgba(18,168,122,.10), transparent 60%),
-      radial-gradient(900px 480px at -6% 4%, rgba(11,110,79,.07), transparent 55%),
+      radial-gradient(900px 480px at -6% 4%, rgba(31,95,139,.07), transparent 55%),
       var(--bg);
     color:var(--ink);
     font-family:"IBM Plex Sans",system-ui,sans-serif;
@@ -38,14 +42,14 @@
     -webkit-font-smoothing:antialiased;
     min-height:100vh;
   }
-  .wrap{max-width:840px;margin:0 auto;padding:34px 20px 80px}
+  .wrap{max-width:880px;margin:0 auto;padding:34px 20px 80px}
 
   header.top{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:6px}
   .brand{font-family:"Fraunces",serif;font-weight:600;font-size:34px;letter-spacing:-.02em;line-height:1}
   .brand .lazy{color:var(--ink)}
   .brand .drive{color:var(--accent)}
   .tag{color:var(--muted);font-size:14.5px;letter-spacing:.01em}
-  .sub{color:var(--muted);font-size:15px;margin:10px 0 26px;max-width:62ch}
+  .sub{color:var(--muted);font-size:15px;margin:10px 0 26px;max-width:68ch}
 
   .card{
     background:var(--panel);
@@ -54,19 +58,58 @@
     box-shadow:var(--shadow);
     padding:24px 22px;
   }
-  .field{margin-bottom:18px}
-  .field:last-child{margin-bottom:0}
-  label{display:block;font-weight:600;font-size:14px;margin-bottom:7px}
-  label .hint{display:block;font-weight:400;color:var(--muted);font-size:12.5px;margin-top:2px}
+  .card + .card{margin-top:22px}
+  h3.card-title{font-family:"Fraunces",serif;font-weight:600;font-size:19px;margin:0 0 4px;letter-spacing:-.01em}
+  .card-sub{color:var(--muted);font-size:13.5px;margin:0 0 18px}
+
+  .field{margin-bottom:0}
+  label{display:block;font-weight:600;font-size:13.5px;margin-bottom:6px}
+  label .hint{display:block;font-weight:400;color:var(--muted);font-size:12px;margin-top:2px}
   input[type=text]{
     width:100%;border:1px solid var(--line);background:#fff;border-radius:10px;
-    padding:13px 14px;font-family:"IBM Plex Mono",monospace;font-size:13.5px;color:var(--ink);
+    padding:12px 13px;font-family:"IBM Plex Mono",monospace;font-size:13px;color:var(--ink);
     transition:border-color .15s, box-shadow .15s;
   }
   input[type=text]:focus{outline:none;border-color:var(--accent-2);box-shadow:0 0 0 3px var(--accent-soft)}
   input.bad{border-color:#c0392b;box-shadow:0 0 0 3px rgba(192,57,43,.1)}
-  .resolved{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--accent);margin-top:6px;min-height:16px;word-break:break-all}
+  .resolved{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--accent);margin-top:5px;min-height:15px;word-break:break-all}
   .resolved.err{color:#c0392b}
+
+  /* Par (linha de trabalho) */
+  .pair{border:1px solid var(--line);border-radius:12px;background:#fff;padding:16px 16px 18px;margin-bottom:14px}
+  .pair-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  .pair-num{
+    font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;letter-spacing:.04em;
+    color:var(--accent);background:var(--accent-soft);border-radius:20px;padding:4px 12px;
+  }
+  .pair.modo-verificar .pair-num{color:var(--verify);background:var(--verify-soft)}
+  .pair-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
+  .seg button{
+    appearance:none;border:none;background:transparent;cursor:pointer;
+    font-family:inherit;font-weight:600;font-size:12.5px;padding:8px 13px;color:var(--muted);
+    transition:background .15s,color .15s;
+  }
+  .seg button + button{border-left:1px solid var(--line)}
+  .seg button.on-backup{background:var(--accent);color:#fff}
+  .seg button.on-verify{background:var(--verify);color:#fff}
+  .rm{
+    appearance:none;border:1px solid var(--line);background:transparent;color:var(--danger);
+    cursor:pointer;font-family:inherit;font-weight:600;font-size:12.5px;padding:8px 12px;border-radius:10px;
+    transition:background .15s,border-color .15s;
+  }
+  .rm:hover{background:#fdecea;border-color:#f2c5c1}
+  .pair-grid{display:grid;grid-template-columns:1fr;gap:14px}
+  @media(min-width:680px){.pair-grid{grid-template-columns:1fr 1fr}}
+  .modo-desc{font-size:12px;color:var(--muted);margin-top:12px}
+  .pair.modo-verificar .modo-desc b{color:var(--verify)}
+  .pair.modo-backup .modo-desc b{color:var(--accent)}
+
+  .add-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:2px 0 20px}
+  .add-hint{color:var(--muted);font-size:12.5px}
+
+  .lote-field{margin:0 0 4px}
+  .lote-field input{font-family:"IBM Plex Sans",sans-serif;font-size:14px}
 
   .btn{
     appearance:none;border:none;cursor:pointer;font-family:inherit;font-weight:600;font-size:15px;
@@ -77,13 +120,12 @@
   .btn-primary:hover{background:#0a5f44}
   .btn-ghost{background:transparent;color:var(--accent);border:1px solid var(--line)}
   .btn-ghost:hover{border-color:var(--accent-2);background:var(--accent-soft)}
+  .btn-sm{font-size:13px;padding:9px 14px;border-radius:9px}
   .actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:22px}
 
-  /* Acordeão passo a passo */
+  /* Acordeao passo a passo */
   details.guide{margin-top:22px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
-  details.guide>summary{
-    cursor:pointer;list-style:none;padding:16px 20px;font-weight:600;display:flex;align-items:center;gap:10px;
-  }
+  details.guide>summary{cursor:pointer;list-style:none;padding:16px 20px;font-weight:600;display:flex;align-items:center;gap:10px}
   details.guide>summary::-webkit-details-marker{display:none}
   .chev{transition:transform .2s;color:var(--accent)}
   details[open] .chev{transform:rotate(90deg)}
@@ -103,6 +145,24 @@
   .note{margin-top:14px;background:var(--warn-soft);border:1px solid #efdcb6;border-radius:10px;padding:12px 14px;font-size:13.5px;color:#5b4413}
   .note b{color:var(--warn)}
 
+  /* Historico */
+  .hist-empty{color:var(--muted);font-size:13.5px;padding:6px 0 2px}
+  .hist-item{border:1px solid var(--line);border-radius:12px;padding:14px 14px 12px;margin-bottom:12px;background:#fff}
+  .hist-item:last-child{margin-bottom:0}
+  .hist-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .hist-name{font-weight:600;font-size:14.5px}
+  .hist-date{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--muted)}
+  .hist-chips{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 10px}
+  .chip{font-size:11.5px;font-weight:600;border-radius:20px;padding:3px 10px;background:#eef1ee;color:var(--muted)}
+  .chip.b{background:var(--accent-soft);color:var(--accent)}
+  .chip.v{background:var(--verify-soft);color:var(--verify)}
+  .hist-pairs{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);line-height:1.7;word-break:break-all;margin-bottom:12px}
+  .hist-pairs .modo-b{color:var(--accent);font-weight:600}
+  .hist-pairs .modo-v{color:var(--verify);font-weight:600}
+  .hist-actions{display:flex;gap:10px;flex-wrap:wrap}
+  .hist-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:16px}
+  .hist-note{color:var(--muted);font-size:12px}
+
   /* Tela do resultado */
   .hidden{display:none}
   .result-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px}
@@ -112,6 +172,9 @@
   .meta .k{color:var(--muted);min-width:128px}
   .meta .v{font-family:"IBM Plex Mono",monospace;color:var(--ink);word-break:break-all}
   .meta .v.tag-name{color:var(--accent);font-weight:500}
+  .par-lines{font-family:"IBM Plex Mono",monospace;font-size:11.5px;line-height:1.8;word-break:break-all;margin:4px 0 18px;color:var(--ink)}
+  .par-lines .modo-b{color:var(--accent);font-weight:600}
+  .par-lines .modo-v{color:var(--verify);font-weight:600}
 
   .code-shell{position:relative;border-radius:var(--radius);overflow:hidden;border:1px solid #0d3327}
   .code-bar{display:flex;align-items:center;justify-content:space-between;background:#0d2b22;color:#bcd9cd;padding:9px 14px;font-size:12.5px;font-family:"IBM Plex Mono",monospace}
@@ -144,29 +207,26 @@
 
   <header class="top">
     <div class="brand"><span class="lazy">Lazy</span><span class="drive">Drive</span></div>
-    <div class="tag">gerador de backup recursivo para o Google Drive</div>
+    <div class="tag">backup e verificação em lote para o Google Drive</div>
   </header>
-  <p class="sub">Cole o link da pasta de origem e da pasta de destino. O LazyDrive gera o código pronto e limpo para você copiar e colar no Google Apps Script. Nada é baixado para o seu computador — tudo roda na infraestrutura do Google.</p>
+  <p class="sub">Monte a lista de pares origem → destino, escolha para cada um entre <b>copiar + verificar</b> ou <b>somente verificar</b>, e o LazyDrive gera um único código para colar no Google Apps Script. A garantia de 100% vem de uma inspeção arquivo a arquivo, registrada em um relatório consolidado com o veredito de cada par.</p>
 
   <!-- TELA 1: ENTRADA -->
   <section id="view-input">
     <div class="card">
-      <div class="field">
-        <label for="src">Link da pasta de ORIGEM
-          <span class="hint">A pasta que será copiada. Aceita o link completo do Drive ou só o ID.</span>
-        </label>
-        <input type="text" id="src" autocomplete="off" spellcheck="false"
-               placeholder="https://drive.google.com/drive/folders/1AbCdEf...">
-        <div class="resolved" id="src-id"></div>
+      <h3 class="card-title">Pares do lote</h3>
+      <p class="card-sub">Um par por bloco. Aceita o link completo da pasta do Drive ou só o ID.</p>
+
+      <div id="pairs"></div>
+
+      <div class="add-row">
+        <button class="btn btn-ghost btn-sm" id="add">+ Adicionar par</button>
+        <span class="add-hint">até 12 pares por lote</span>
       </div>
 
-      <div class="field">
-        <label for="dst">Link da pasta de DESTINO
-          <span class="hint">Onde o backup será criado. O log também será salvo aqui.</span>
-        </label>
-        <input type="text" id="dst" autocomplete="off" spellcheck="false"
-               placeholder="https://drive.google.com/drive/folders/1XyZw9...">
-        <div class="resolved" id="dst-id"></div>
+      <div class="field lote-field">
+        <label for="apelido">Apelido do lote <span class="hint">Opcional — só para identificar este lote no histórico abaixo.</span></label>
+        <input type="text" id="apelido" autocomplete="off" spellcheck="false" placeholder="Ex.: Backup mensal das pastas fiscais">
       </div>
 
       <div class="actions">
@@ -182,38 +242,49 @@
       </summary>
       <div class="guide-body">
         <ol class="steps">
-          <li>Cole os dois links acima e clique em <b>Gerar código</b>. Copie todo o código que aparecer.</li>
+          <li>Adicione os pares acima (origem → destino). Marque <b>Somente verificar</b> nos pares em que você não quer copiar nada, só conferir. Clique em <b>Gerar código</b> e copie tudo.</li>
           <li>Abra <code>script.google.com</code> e clique em <b>Novo projeto</b>.</li>
           <li>Apague o conteúdo padrão (<code>function myFunction() {}</code>) e <b>cole o código gerado</b>.</li>
           <li>No painel esquerdo, clique em <b>Serviços</b> (ícone <code>+</code>), procure <b>Drive API</b> e clique em <b>Adicionar</b>.</li>
-          <li>No seletor de funções no topo, escolha <code>iniciarBackup</code> e clique em <b>Executar</b>.</li>
-          <li>Na primeira execução o Google pede autorização: escolha sua conta &rarr; <b>Avançado</b> &rarr; <b>Acessar (não seguro)</b> &rarr; <b>Permitir</b>.</li>
-          <li>Acompanhe pela planilha de log criada dentro da pasta de destino. A <b>última linha</b> informa se o backup ficou 100% completo.</li>
-          <li>Se a pasta for grande, o script pausa e se reagenda sozinho até terminar — não precisa fazer nada. Para cancelar, execute <code>abortarBackup</code>.</li>
+          <li>No seletor de funções no topo, escolha <code>iniciarLote</code> e clique em <b>Executar</b>. Na primeira execução, autorize: sua conta &rarr; <b>Avançado</b> &rarr; <b>Acessar (não seguro)</b> &rarr; <b>Permitir</b>.</li>
+          <li>Acompanhe pela planilha <b>LazyDrive relatorio &lt;data&gt;</b>, criada no destino do primeiro par. A aba <b>resumo</b> mostra o status geral no topo e uma linha com o veredito de cada par; a aba <b>detalhe</b> registra tudo — inclusive cada arquivo <b>FALTANTE</b> com o caminho completo.</li>
+          <li>O script pausa e se reagenda sozinho até terminar (com um vigia a cada 10 min que retoma até depois de quedas). Para acelerar, rode <code>executarAgora</code> quantas vezes quiser.</li>
+          <li><code>continuarLote</code> re-verifica e completa tudo sem duplicar nada; <code>abortarLote</code> cancela e limpa o estado.</li>
         </ol>
         <div class="note">
-          <b>Importante:</b> execute logado na conta que tem acesso de <b>leitura na origem</b> e de <b>escrita no destino</b>. Para Drive Compartilhado (Shared Drive) o código já está preparado. Conta Google gratuita tem limite de 6 minutos por execução — o checkpoint resolve isso automaticamente.
+          <b>Importante:</b> execute logado na conta com <b>leitura em todas as origens</b> e <b>escrita nos destinos</b>. No modo backup, cada origem usa uma pasta espelho fixa <b>&laquo;nome da origem&raquo; (backup)</b> dentro do destino — rodar de novo é incremental, nunca duplica. O modo <b>Somente verificar</b> não cria, não copia e não altera nada no destino. Drive Compartilhado já é suportado, e o limite de 6 minutos por execução é contornado automaticamente.
         </div>
       </div>
     </details>
+
+    <div class="card">
+      <h3 class="card-title">Histórico</h3>
+      <p class="card-sub">Lotes já gerados neste navegador, para reaproveitar sem digitar de novo.</p>
+      <div id="hist-list"></div>
+      <div class="hist-foot">
+        <span class="hist-note">O histórico fica salvo apenas neste navegador (localStorage) — não vai para nenhum servidor.</span>
+        <button class="btn btn-ghost btn-sm" id="hist-clear">Limpar histórico</button>
+      </div>
+    </div>
   </section>
 
   <!-- TELA 2: RESULTADO -->
   <section id="view-result" class="hidden">
     <div class="result-head">
       <h2>Código pronto</h2>
-      <button class="btn btn-ghost" id="back">&larr; Gerar outro</button>
+      <button class="btn btn-ghost" id="back">&larr; Voltar e editar</button>
     </div>
 
     <div class="meta">
-      <div class="row"><span class="k">ID de origem</span><span class="v" id="m-src"></span></div>
-      <div class="row"><span class="k">ID de destino</span><span class="v" id="m-dst"></span></div>
-      <div class="row"><span class="k">Planilha de log</span><span class="v tag-name" id="m-log">&lt;nome do destino&gt; backup</span></div>
+      <div class="row"><span class="k">Lote</span><span class="v tag-name" id="m-apelido"></span></div>
+      <div class="row"><span class="k">Pares</span><span class="v" id="m-count"></span></div>
+      <div class="row"><span class="k">Relatório</span><span class="v tag-name">LazyDrive relatorio &lt;data&gt; &middot; abas resumo + detalhe &middot; criado no destino do 1&ordm; par</span></div>
     </div>
+    <div class="par-lines" id="m-pairs"></div>
 
     <div class="code-shell">
       <div class="code-bar">
-        <span class="fname">LazyDrive.gs &middot; cole no editor do Apps Script</span>
+        <span class="fname">LazyDrive.gs &middot; cole no editor do Apps Script e execute <b>iniciarLote</b></span>
         <button class="copy" id="copy">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
           <span id="copy-label">Copiar código</span>
@@ -223,279 +294,1030 @@
     </div>
 
     <div class="note" style="margin-top:18px">
-      <b>Lembrete:</b> a planilha de log nasce com o nome <b>&laquo;nome da pasta de destino&raquo; + backup</b> e fica dentro da própria pasta de destino. A linha final da tabela traz a <b>CHECAGEM</b> comparando arquivos da origem x copiados, com o percentual e o veredito <b>BACKUP 100% COMPLETO</b> ou <b>INCOMPLETO</b>.
+      <b>Como ler o veredito:</b> na aba <b>resumo</b>, a célula de status geral fica <b>verde</b> quando todos os pares terminam 100% verificados e <b>vermelha</b> se houver qualquer pendência. Cada par tem a própria linha com contagens (origem, copiados, verificados OK, faltantes, erros) e o veredito <b>BACKUP 100% COMPLETO</b>, <b>VERIFICADO — 100% PRESENTE</b>, <b>PENDENTE</b> ou <b>ERRO DE CONFIGURAÇÃO</b>. Todo arquivo faltante aparece na aba <b>detalhe</b> como linha <b>FALTANTE</b>, com o caminho completo — nada passa sem ser conferido.
     </div>
   </section>
 
   <footer>LazyDrive &middot; gera o código, você cola no <span>Google Apps Script</span>. Sem download, sem servidor.</footer>
 </div>
 
-<script>
-/* ====================== TEMPLATE DO APPS SCRIPT ======================
-   Placeholders __SOURCE_ID__ e __DEST_ID__ são substituídos na geração.
-   O código abaixo não usa crases nem ${ } para conviver com este template. */
-const TPL = `/**************************************************************************************
- * LazyDrive — BACKUP RECURSIVO DE PASTA DO GOOGLE DRIVE
- * Gerado automaticamente. Cole este arquivo no editor em script.google.com.
+<!-- ====================== TEMPLATE DO APPS SCRIPT (v9) ======================
+     O marcador __JOBS__ dentro do template é substituído pela lista de pares. -->
+<script id="tpl-gs" type="text/plain">
+/**************************************************************************************
+ * LazyDrive v9 — BACKUP E VERIFICACAO EM LOTE DE PASTAS DO GOOGLE DRIVE
+ * Cole este arquivo inteiro no editor em script.google.com (substitui a versao anterior).
  *
- * Origem:  __SOURCE_ID__
- * Destino: __DEST_ID__
+ * O QUE HA DE NOVO NA v9
+ *  1. VARIOS PARES DE UMA SO VEZ: a lista JOBS abaixo aceita quantos pares
+ *     origem -> destino voce quiser. O script processa um por um, em sequencia,
+ *     com retomada automatica, e fecha um veredito individual para cada par.
+ *  2. DOIS MODOS POR PAR:
+ *       modo: 'backup'    -> copia o que falta e depois verifica tudo.
+ *       modo: 'verificar' -> NAO copia nem altera nada; apenas confere, arquivo a
+ *                            arquivo, se tudo o que existe na origem esta no destino.
+ *  3. ESPELHO FIXO E INCREMENTAL: no modo backup, cada origem ganha (ou reutiliza)
+ *     uma pasta espelho chamada "<nome da origem> (backup)" dentro do destino.
+ *     Rodar de novo NAO duplica nada: so copia o que falta.
+ *  4. VEREDITO POR INSPECAO, NAO POR CONTAGEM: a garantia de 100% vem de uma
+ *     varredura final que confere CADA arquivo da origem individualmente no destino
+ *     (pela marca appProperties.lzSrc e, como reserva, por nome + tamanho).
+ *     Qualquer arquivo ausente vira uma linha FALTANTE no relatorio, com o caminho
+ *     completo. Contagem igual nunca mascara arquivo faltando.
+ *  5. RELATORIO CONSOLIDADO EM DUAS ABAS:
+ *       - aba "resumo": status geral do lote no topo + uma tabela com uma linha por
+ *         par (contagens, faltantes, erros, progresso e veredito colorido).
+ *       - aba "detalhe": trilha completa de eventos (JOB, MAPEAMENTO, PASTA, REPARO,
+ *         FALTANTE, ERRO, RESULTADO...), com o numero do par em cada linha.
+ *     A planilha nasce no destino do PRIMEIRO par (ou em LOG_FOLDER_ID, se definido)
+ *     com o nome "LazyDrive relatorio <data>".
  *
- * O QUE FAZ
- *  - Copia toda a arvore (subpastas aninhadas) da origem para dentro do destino.
- *  - Nao baixa nada para o computador: tudo roda na infraestrutura do Google.
- *  - Suporta Drive Compartilhado (supportsAllDrives / includeItemsFromAllDrives).
- *  - Checkpoint + retomada automatica por gatilho temporal (contorna o limite de 6/30 min).
- *  - Cria a planilha de log com o nome "<NOME DA PASTA DE DESTINO> backup", dentro do destino.
- *  - Ao final faz CHECAGEM independente e escreve no fim da tabela se 100% foi copiado.
+ * FASES POR PAR (todas resumiveis)
+ *   backup:    CENSO_ORIGEM -> COPIA -> CONFERENCIA (repara faltantes)
+ *              -> VERIFICA (inspecao arquivo a arquivo) -> CENSO_DESTINO
+ *   verificar: CENSO_ORIGEM -> VERIFICA (somente leitura)
+ *
+ * ROBUSTEZ (herdada da v8.1)
+ *  - Watchdog recorrente (10 min) + gatilho rapido (1 min): nunca para sozinho,
+ *    mesmo apos o corte duro dos 6 minutos ou fim da cota diaria de gatilhos.
+ *  - Checagem de tempo por item; fila fragmentada em blocos de 8 KB; retry com
+ *    backoff exponencial; log gravado na hora com SpreadsheetApp.flush();
+ *    planilha de relatorio auto-recriada se sumir.
+ *
+ * LIMITES OFICIAIS (conferidos em jul/2026): 6 min por execucao para todas as
+ * contas; gatilhos 90 min/dia (gratuita) ou 6 h/dia (Workspace); execucoes manuais
+ * tem teto maior — use executarAgora() para acelerar lotes grandes.
  *
  * PRE-REQUISITOS
- *  1) Estar logado na conta com acesso de LEITURA na origem e ESCRITA no destino.
+ *  1) Estar logado na conta com LEITURA em todas as origens e ESCRITA nos destinos.
  *  2) Ativar o servico avancado: Editor > Servicos (+) > "Drive API" > Adicionar.
  *
- * COMO RODAR
- *  - Selecione a funcao "iniciarBackup" e clique em Executar. Autorize quando pedir.
- *  - Para cancelar e limpar o estado a qualquer momento: rode "abortarBackup".
+ * COMO USAR
+ *  - iniciarLote()    -> comeca o lote do zero (cria um relatorio novo).
+ *  - executarAgora()  -> processa um lote de trabalho imediatamente, sem esperar
+ *                        o gatilho (execucao manual, fora da cota de gatilhos).
+ *  - continuarLote()  -> re-verifica e completa o lote existente, no mesmo relatorio.
+ *  - statusLote()     -> imprime a situacao de cada par no log do editor.
+ *  - abortarLote()    -> cancela tudo e limpa gatilhos e estado.
+ *  (iniciarBackup, continuarBackup, statusBackup e abortarBackup continuam
+ *   funcionando como apelidos das funcoes acima.)
  **************************************************************************************/
 
-// ====================== CONFIGURACAO (ja preenchida) ======================
-const SOURCE_FOLDER_ID = '__SOURCE_ID__';
-const DEST_PARENT_ID   = '__DEST_ID__';
+// ====================== PARES DE TRABALHO ======================
+// modo: 'backup' = copia e verifica | 'verificar' = somente confere, nao copia nada
+const JOBS = __JOBS__;
 
-const BATCH_LIMIT = 200;       // arquivos processados por pagina/volta
-const SAFETY_MS   = 300000;    // margem de 5 min antes do timeout (conta gratuita = 6 min)
+// ====================== CONFIGURACAO ======================
+const LOG_FOLDER_ID = ''; // vazio = o relatorio nasce no destino do primeiro par
 
-// chaves de estado persistente
-const P         = PropertiesService.getScriptProperties();
-const K_QUEUE   = 'lz_queue';
-const K_LOGID   = 'lz_logid';
-const K_ROOTID  = 'lz_rootid';
-const K_COPIED  = 'lz_copied';
-const K_RUNNING = 'lz_running';
+const TEMPO_UTIL_MS  = 270 * 1000; // 4,5 min de trabalho por execucao (limite duro: 6 min)
+const PAGE_SIZE      = 1000;       // maximo aceito pela Drive API por pagina
+const WATCHDOG_MIN   = 10;         // intervalo do gatilho de seguranca (recorrente)
+const RETENTATIVAS   = 5;          // tentativas por chamada de API em erro transitorio
+const PROP_CHUNK     = 8000;       // tamanho do bloco ao fragmentar estado nas properties
+const RESUMO_MS      = 20 * 1000;  // intervalo minimo entre atualizacoes do resumo
+const MARCAR_LEGADO  = true;       // ao reconhecer copia antiga por nome+tamanho, grava a marca lzSrc nela
 
-// ====================== PONTO DE ENTRADA ======================
-function iniciarBackup() {
+const MIME_PASTA  = 'application/vnd.google-apps.folder';
+const MIME_ATALHO = 'application/vnd.google-apps.shortcut';
+
+// layout da aba "resumo"
+const R_TAB_CAB = 7;  // linha do cabecalho da tabela de pares
+const R_TAB_INI = 8;  // primeira linha de dados da tabela de pares
+
+const P       = PropertiesService.getScriptProperties();
+const K_FASE  = 'lz_fase';
+const K_JOB   = 'lz_job';
+const K_LOG   = 'lz_log';
+const K_CONT  = 'lz_cont';
+const K_FILA  = 'lz_fila';   // fila de pares de pastas {s, d, p:caminho}
+const K_PILHA = 'lz_pilha';  // pilha de pastas para o censo
+
+// tipos de evento gravados na hora (os demais sao gravados em pequenos lotes)
+const TIPOS_IMEDIATOS = { LOTE:1, JOB:1, MAPEAMENTO:1, COPIA:1, CONFERENCIA:1,
+  VERIFICACAO:1, RESULTADO:1, CHECAGEM:1, PAUSA:1, ERRO:1, ABORTADO:1, RETOMADA:1, AVISO:1 };
+
+// cache por execucao (nao persiste)
+let __logBuffer = [];
+let __abas      = {};
+let __tResumo   = 0;
+
+// ====================== FUNCOES PUBLICAS ======================
+function iniciarLote() {
   limparGatilhos_();
   P.deleteAllProperties();
+  __logBuffer = []; __abas = {}; __tResumo = 0;
 
-  const origem  = obterPasta_(SOURCE_FOLDER_ID);
-  const destino = obterPasta_(DEST_PARENT_ID);
+  if (!JOBS || JOBS.length === 0) throw new Error('A lista JOBS esta vazia. Adicione ao menos um par.');
 
-  // planilha de log: "<nome do destino> backup"
-  const logId = criarPlanilhaLog_(destino.name + ' backup', destino.id);
-  P.setProperty(K_LOGID, logId);
+  const cont = { execs: 0, t0: Date.now(), jobs: [] };
+  let logParent = LOG_FOLDER_ID || '';
 
-  log_('INICIO', 'Origem: ' + origem.name + '  ->  Destino: ' + destino.name,
-       SOURCE_FOLDER_ID, DEST_PARENT_ID, 'iniciado');
+  // pre-carrega nomes e valida acesso basico de cada par
+  JOBS.forEach(function (job) {
+    const jc = jobVazio_();
+    jc.modo = (job.modo === 'verificar') ? 'verificar' : 'backup';
+    try {
+      const o = api_(function () { return Drive.Files.get(job.origem,  { supportsAllDrives: true, fields: 'id, name' }); });
+      const d = api_(function () { return Drive.Files.get(job.destino, { supportsAllDrives: true, fields: 'id, name' }); });
+      jc.no = truncar_(o.name, 60);
+      jc.nd = truncar_(d.name, 60);
+      if (!logParent) logParent = job.destino;
+    } catch (e) {
+      jc.status = 'CONFIG';
+      jc.obs = 'pasta inacessivel: ' + String(e && e.message || e);
+    }
+    cont.jobs.push(jc);
+  });
 
-  // pasta-raiz do backup, criada dentro do destino
-  const rootName = origem.name + ' (backup ' + nowStamp_() + ')';
-  const rootId = criarSubpasta_(rootName, DEST_PARENT_ID);
-  P.setProperty(K_ROOTID, rootId);
-  P.setProperty(K_COPIED, '0');
+  if (!logParent) throw new Error('Nenhum destino acessivel para criar o relatorio. Verifique os IDs e as permissoes.');
 
-  const queue = [{ s: SOURCE_FOLDER_ID, d: rootId, t: null }];
-  P.setProperty(K_QUEUE, JSON.stringify(queue));
+  const logId = criarPlanilha_('LazyDrive relatorio ' + nowStamp_(), logParent, cont);
+  P.setProperty(K_LOG, logId);
+  salvarCont_(cont);
+  P.setProperty(K_JOB, '0');
+  P.setProperty(K_FASE, 'INIT');
 
-  log_('PASTA', rootName, SOURCE_FOLDER_ID, rootId, 'pasta-raiz criada');
-  processar_();
+  log_(-1, 'LOTE', 'Lote iniciado com ' + JOBS.length + ' par(es)', '-', '-', 'LazyDrive v9');
+  atualizarResumoGeral_(cont, 'EM ANDAMENTO — preparando par 1/' + JOBS.length, '#fef7e0');
+
+  garantirWatchdog_();
+  motor_();
 }
 
-// retomada automatica (chamada pelo gatilho temporal)
-function retomarBackup_() {
-  P.deleteProperty(K_RUNNING); // a execucao anterior ja morreu
-  processar_();
+// Processa um lote de trabalho imediatamente (execucao manual, fora da cota de gatilhos).
+function executarAgora() { motor_(); }
+
+// Re-verifica e completa o lote existente, gravando no mesmo relatorio.
+function continuarLote() {
+  const logId = P.getProperty(K_LOG);
+  const cont = lerCont_();
+  if (!logId || !cont.jobs.length) throw new Error('Nao ha lote anterior registrado. Rode iniciarLote().');
+
+  cont.jobs.forEach(function (jc) {
+    jc.status = 'AGUARDANDO'; jc.obs = ''; jc.root = '';
+    jc.oArq = 0; jc.oPas = 0; jc.copiados = 0; jc.pulados = 0;
+    jc.reparados = 0; jc.vOk = 0; jc.faltantes = 0; jc.erros = 0; jc.dArq = 0;
+  });
+  salvarCont_(cont);
+  P.setProperty(K_JOB, '0');
+  P.setProperty(K_FASE, 'INIT');
+
+  log_(-1, 'RETOMADA', 'Re-verificacao e complemento de todos os pares do lote', '-', '-', 'iniciado');
+  cont.jobs.forEach(function (jc, i) { atualizarResumoJob_(cont, i); });
+  atualizarResumoGeral_(cont, 'EM ANDAMENTO — preparando par 1/' + JOBS.length, '#fef7e0');
+  garantirWatchdog_();
+  motor_();
 }
 
-// ====================== NUCLEO ======================
-function processar_() {
-  if (P.getProperty(K_RUNNING) === '1') return; // evita concorrencia
-  P.setProperty(K_RUNNING, '1');
+function statusLote() {
+  const fase = P.getProperty(K_FASE) || '(nenhum lote em andamento)';
+  const j = jobAtual_();
+  const cont = lerCont_();
+  Logger.log('Fase: ' + fase + ' | Par atual: ' + (j + 1) + '/' + JOBS.length + ' | Execucoes: ' + cont.execs);
+  cont.jobs.forEach(function (jc, i) {
+    Logger.log('Par ' + (i + 1) + ' [' + jc.modo + '] ' + jc.no + ' -> ' + jc.nd +
+      ' | status: ' + jc.status +
+      ' | origem: ' + jc.oArq + ' arq | copiados: ' + jc.copiados +
+      ' | ja existiam: ' + jc.pulados + ' | recuperados: ' + jc.reparados +
+      ' | verificados OK: ' + jc.vOk + ' | FALTANTES: ' + jc.faltantes +
+      ' | erros: ' + jc.erros + ' | recontagem destino: ' + jc.dArq);
+  });
+}
 
-  const inicio = Date.now();
-  let queue = JSON.parse(P.getProperty(K_QUEUE) || '[]');
-  let copiados = parseInt(P.getProperty(K_COPIED) || '0', 10);
+function abortarLote() {
+  const cont = lerCont_();
+  log_(-1, 'ABORTADO', 'Lote cancelado pelo usuario', '-', '-', 'estado limpo');
+  atualizarResumoGeral_(cont, 'ABORTADO PELO USUARIO', '#e8eaed');
+  limparGatilhos_();
+  P.deleteAllProperties();
+  Logger.log('Lote abortado e estado limpo.');
+}
+
+// apelidos das versoes anteriores
+function iniciarBackup()   { iniciarLote(); }
+function continuarBackup() { continuarLote(); }
+function statusBackup()    { statusLote(); }
+function abortarBackup()   { abortarLote(); }
+
+// ====================== HANDLERS DE GATILHO ======================
+function retomarBackup_()  { motor_(); }
+function watchdogBackup_() {
+  const fase = P.getProperty(K_FASE);
+  if (!fase || fase === 'FIM') { limparGatilhos_(); return; }
+  motor_();
+}
+
+// ====================== MOTOR (maquina de fases sobre a lista de pares) ======================
+function motor_() {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) return; // outra execucao ja esta trabalhando
+
+  const deadline = Date.now() + TEMPO_UTIL_MS;
+  const cont = lerCont_();
+  cont.execs++;
 
   try {
-    while (queue.length > 0) {
-      if (Date.now() - inicio > SAFETY_MS) {
-        P.setProperty(K_QUEUE, JSON.stringify(queue));
-        P.setProperty(K_COPIED, String(copiados));
-        P.deleteProperty(K_RUNNING);
-        agendarRetomada_();
-        log_('PAUSA', 'Tempo limite atingido — reagendando em 1 min', '-', '-',
-             copiados + ' arquivo(s) ate aqui');
-        return;
+    let fase = P.getProperty(K_FASE);
+    while (fase && fase !== 'FIM') {
+      if (Date.now() > deadline) { pausar_(cont); return; }
+
+      const j = jobAtual_();
+      if (j >= JOBS.length) {
+        finalizarLote_(cont);
+        P.setProperty(K_FASE, 'FIM');
+        break;
       }
 
-      const par = queue[0];
-      const filhos = listarFilhos_(par.s, par.t);
+      if (fase === 'INIT') { fase = initJob_(cont, j); continue; }
 
-      // arquivos -> copia direto
-      filhos.arquivos.forEach(function (f) {
-        try {
-          Drive.Files.copy({ name: f.name, parents: [par.d] }, f.id, { supportsAllDrives: true });
-          copiados++;
-        } catch (e) {
-          log_('ERRO', f.name, f.id, par.d, 'falha ao copiar: ' + e.message);
-        }
-      });
+      const jc = cont.jobs[j];
+      let ok = false;
+      if      (fase === 'CENSO_ORIGEM')  ok = censo_(deadline, cont, jc, 'origem');
+      else if (fase === 'COPIA')         ok = copiar_(deadline, cont, j, false);
+      else if (fase === 'CONFERENCIA')   ok = copiar_(deadline, cont, j, true);
+      else if (fase === 'VERIFICA')      ok = verificar_(deadline, cont, j);
+      else if (fase === 'CENSO_DESTINO') ok = censo_(deadline, cont, jc, 'destino');
+      else break;
 
-      // subpastas -> recria no destino e enfileira
-      filhos.pastas.forEach(function (sub) {
-        const novoId = criarSubpasta_(sub.name, par.d);
-        queue.push({ s: sub.id, d: novoId, t: null });
-        log_('PASTA', sub.name, sub.id, novoId, 'subpasta criada');
-      });
-
-      if (filhos.nextPageToken) {
-        par.t = filhos.nextPageToken;  // mesma pasta continua na proxima volta
-      } else {
-        queue.shift();                 // pasta concluida
-      }
-
-      P.setProperty(K_QUEUE, JSON.stringify(queue));
-      P.setProperty(K_COPIED, String(copiados));
+      if (!ok) { pausar_(cont); return; }
+      fase = proximaFase_(fase, cont, j);
     }
-
-    finalizar_(copiados);
+    salvarCont_(cont);
+    flushLog_();
   } catch (err) {
-    log_('ERRO', 'Falha geral na execucao', '-', '-', err.message);
-    P.deleteProperty(K_RUNNING);
+    salvarCont_(cont);
+    log_(jobAtual_(), 'ERRO', 'Falha inesperada na execucao', '-', '-', String(err && err.message || err));
+    agendarRetomadaRapida_(2); // alem do watchdog, tenta de novo em 2 min
     throw err;
+  } finally {
+    lock.releaseLock();
   }
 }
 
-// ====================== FINALIZACAO + CHECAGEM 100% ======================
-function finalizar_(copiados) {
-  limparGatilhos_();
-  const rootId = P.getProperty(K_ROOTID);
+// Prepara o par atual: valida, resolve o espelho e semeia pilha/fila.
+function initJob_(cont, j) {
+  const job = JOBS[j];
+  const jc = cont.jobs[j];
 
-  const totalOrigem  = contarArquivos_(SOURCE_FOLDER_ID);
-  const totalDestino = contarArquivos_(rootId);
-
-  const pct = totalOrigem === 0 ? 100 : Math.round((totalDestino / totalOrigem) * 10000) / 100;
-  const ok  = totalDestino >= totalOrigem;
-
-  log_('CHECAGEM',
-       'Arquivos na origem: ' + totalOrigem + ' | copiados no destino: ' + totalDestino,
-       SOURCE_FOLDER_ID, rootId, pct + '%');
-
-  if (ok) {
-    log_('RESULTADO', 'BACKUP 100% COMPLETO', '-', '-',
-         'OK — todos os ' + totalOrigem + ' arquivo(s) foram copiados');
-  } else {
-    log_('RESULTADO', 'BACKUP INCOMPLETO', '-', '-',
-         'FALTARAM ' + (totalOrigem - totalDestino) + ' arquivo(s) — execute iniciarBackup novamente');
+  if (jc.status === 'CONFIG') { // ja falhou na validacao inicial
+    log_(j, 'ERRO', 'Par ignorado (configuracao invalida)', job.origem, job.destino, jc.obs || '-');
+    concluirJobRow_(cont, j);
+    P.setProperty(K_JOB, String(j + 1));
+    salvarCont_(cont);
+    return 'INIT';
   }
 
-  P.deleteProperty(K_RUNNING);
-  Logger.log('Concluido. Copiados=' + copiados +
-             ' | Origem=' + totalOrigem + ' | Destino=' + totalDestino + ' (' + pct + '%)');
+  try {
+    validarPar_(job.origem, job.destino);
+    const origem = api_(function () { return Drive.Files.get(job.origem, { supportsAllDrives: true, fields: 'id, name' }); });
+
+    if (jc.modo === 'verificar') {
+      const esp = localizarEspelho_(origem, job.destino);
+      jc.root = esp ? esp.id : job.destino;
+      log_(j, 'JOB', 'Verificar: ' + jc.no + ' -> ' + jc.nd, job.origem, jc.root,
+           esp ? ('comparando com o espelho encontrado (' + esp.como + ')')
+               : 'nenhum espelho encontrado — comparando direto com a pasta de destino');
+    } else {
+      jc.root = resolverEspelhoBackup_(origem, job.destino);
+      log_(j, 'JOB', 'Backup: ' + jc.no + ' -> ' + jc.nd, job.origem, jc.root,
+           'pasta espelho pronta (reuso incremental: rodar de novo nao duplica nada)');
+    }
+
+    jc.status = 'ANDAMENTO';
+    salvarGrande_(K_PILHA, JSON.stringify([job.origem]));
+    salvarGrande_(K_FILA,  JSON.stringify([{ s: job.origem, d: jc.root, p: '' }]));
+    P.setProperty(K_FASE, 'CENSO_ORIGEM');
+    salvarCont_(cont);
+    atualizarResumoJob_(cont, j);
+    atualizarResumoGeral_(cont, textoGeral_(j, 'CENSO_ORIGEM'), '#fef7e0');
+    return 'CENSO_ORIGEM';
+
+  } catch (e) {
+    jc.status = 'CONFIG'; jc.obs = String(e && e.message || e); jc.erros++;
+    log_(j, 'ERRO', 'Configuracao invalida do par', job.origem, job.destino, jc.obs);
+    concluirJobRow_(cont, j);
+    P.setProperty(K_JOB, String(j + 1));
+    salvarCont_(cont);
+    return 'INIT';
+  }
+}
+
+function proximaFase_(fase, cont, j) {
+  const jc = cont.jobs[j];
+
+  if (fase === 'CENSO_ORIGEM') {
+    log_(j, 'MAPEAMENTO', 'Origem "' + jc.no + '" contem ' + jc.oArq + ' arquivo(s) em ' + (jc.oPas + 1) + ' pasta(s)',
+         JOBS[j].origem, '-', 'censo concluido');
+    const prox = (jc.modo === 'verificar') ? 'VERIFICA' : 'COPIA';
+    P.setProperty(K_FASE, prox);
+    atualizarResumoGeral_(cont, textoGeral_(j, prox), '#fef7e0');
+    return prox;
+  }
+  if (fase === 'COPIA') {
+    log_(j, 'COPIA', 'Copia concluida', '-', '-',
+         jc.copiados + ' copiado(s), ' + jc.pulados + ' ja existiam, ' + jc.erros + ' erro(s)');
+    reseedFila_(j, jc);
+    P.setProperty(K_FASE, 'CONFERENCIA');
+    atualizarResumoGeral_(cont, textoGeral_(j, 'CONFERENCIA'), '#fef7e0');
+    return 'CONFERENCIA';
+  }
+  if (fase === 'CONFERENCIA') {
+    log_(j, 'CONFERENCIA', 'Varredura de reparo concluida', '-', '-',
+         jc.reparados + ' arquivo(s) faltantes recuperados');
+    reseedFila_(j, jc);
+    P.setProperty(K_FASE, 'VERIFICA');
+    atualizarResumoGeral_(cont, textoGeral_(j, 'VERIFICA'), '#fef7e0');
+    return 'VERIFICA';
+  }
+  if (fase === 'VERIFICA') {
+    log_(j, 'VERIFICACAO', 'Inspecao arquivo a arquivo concluida', '-', '-',
+         jc.vOk + ' presente(s), ' + jc.faltantes + ' faltante(s)');
+    if (jc.modo === 'verificar') { concluirJob_(cont, j); return 'INIT'; }
+    jc.dArq = 0;
+    salvarCont_(cont);
+    salvarGrande_(K_PILHA, JSON.stringify([jc.root]));
+    P.setProperty(K_FASE, 'CENSO_DESTINO');
+    atualizarResumoGeral_(cont, textoGeral_(j, 'CENSO_DESTINO'), '#fef7e0');
+    return 'CENSO_DESTINO';
+  }
+  if (fase === 'CENSO_DESTINO') { concluirJob_(cont, j); return 'INIT'; }
+  return 'FIM';
+}
+
+function reseedFila_(j, jc) {
+  salvarGrande_(K_FILA, JSON.stringify([{ s: JOBS[j].origem, d: jc.root, p: '' }]));
+}
+
+// Fecha o veredito do par. A garantia vem da inspecao arquivo a arquivo (fase VERIFICA):
+// so e 100% se NENHUM arquivo da origem ficou sem correspondente no destino.
+function concluirJob_(cont, j) {
+  const jc = cont.jobs[j];
+  const okJob = (jc.faltantes === 0);
+  jc.status = okJob ? 'OK' : 'PEND';
+
+  if (jc.modo === 'verificar') {
+    log_(j, 'RESULTADO', okJob ? 'VERIFICADO — 100% PRESENTE' : 'DIVERGENTE', '-', '-',
+         okJob ? ('todos os ' + jc.oArq + ' arquivo(s) da origem foram encontrados no destino, um a um')
+               : (jc.faltantes + ' arquivo(s) da origem NAO encontrados no destino — veja as linhas FALTANTE com o caminho de cada um'));
+  } else {
+    log_(j, 'RESULTADO', okJob ? 'BACKUP 100% COMPLETO' : 'BACKUP INCOMPLETO', '-', '-',
+         okJob ? ('inspecao arquivo a arquivo: ' + jc.vOk + ' presente(s). Copiados nesta rodada: ' + jc.copiados +
+                  ' | recuperados no reparo: ' + jc.reparados + ' | recontagem independente no destino: ' + jc.dArq)
+               : ('faltam ' + jc.faltantes + ' arquivo(s) mesmo apos o reparo (erros: ' + jc.erros +
+                  ' — normalmente arquivos protegidos contra copia). Veja as linhas FALTANTE e ERRO.'));
+  }
+
+  concluirJobRow_(cont, j);
+  P.setProperty(K_JOB, String(j + 1));
+  P.setProperty(K_FASE, 'INIT');
+  salvarCont_(cont);
+}
+
+function finalizarLote_(cont) {
+  limparGatilhos_();
+  let pend = 0;
+  cont.jobs.forEach(function (jc) { if (jc.status !== 'OK') pend++; });
+  const durMin = Math.max(1, Math.round((Date.now() - cont.t0) / 60000));
+
+  if (pend === 0) {
+    log_(-1, 'LOTE', 'LOTE CONCLUIDO — TODOS OS PARES 100% VERIFICADOS', '-', '-',
+         'duracao ~' + durMin + ' min em ' + cont.execs + ' execucao(oes)');
+    atualizarResumoGeral_(cont, 'LOTE CONCLUIDO — TODOS OS PARES 100% VERIFICADOS', '#e6f4ea');
+  } else {
+    log_(-1, 'LOTE', 'LOTE CONCLUIDO COM PENDENCIAS', '-', '-',
+         pend + ' par(es) com faltantes ou erro de configuracao — detalhes na tabela e nas linhas FALTANTE/ERRO');
+    atualizarResumoGeral_(cont, 'LOTE CONCLUIDO — ' + pend + ' PAR(ES) COM PENDENCIAS', '#fce8e6');
+  }
+  Logger.log('Lote concluido. Pares com pendencias: ' + pend + ' de ' + JOBS.length);
+}
+
+function pausar_(cont) {
+  const j = Math.min(jobAtual_(), JOBS.length - 1);
+  const fase = P.getProperty(K_FASE);
+  salvarCont_(cont);
+  const jc = cont.jobs[j];
+  log_(j, 'PAUSA', 'Retomada automatica em ~1 min', '-', '-', jc ? progressoTxt_(jc, fase) : '-');
+  atualizarResumoGeral_(cont, textoGeral_(j, fase), '#fef7e0');
+  if (jc) atualizarResumoJob_(cont, j);
+  flushLog_();
+  agendarRetomadaRapida_(1);
+}
+
+function textoGeral_(j, fase) {
+  return 'EM ANDAMENTO — par ' + (j + 1) + '/' + JOBS.length + ': ' + faseTxt_(fase);
+}
+
+function faseTxt_(fase) {
+  if (fase === 'CENSO_ORIGEM')  return 'mapeando a origem';
+  if (fase === 'COPIA')         return 'copiando arquivos';
+  if (fase === 'CONFERENCIA')   return 'reparando faltantes';
+  if (fase === 'VERIFICA')      return 'inspecionando arquivo a arquivo';
+  if (fase === 'CENSO_DESTINO') return 'recontagem independente do destino';
+  return 'preparando';
+}
+
+function progressoTxt_(jc, fase) {
+  if (fase === 'CENSO_ORIGEM')  return jc.oArq + ' arquivo(s) mapeados ate aqui';
+  if (fase === 'COPIA')         return jc.copiados + ' de ' + jc.oArq + ' arquivo(s) copiados';
+  if (fase === 'CONFERENCIA')   return jc.reparados + ' faltante(s) recuperados ate aqui';
+  if (fase === 'VERIFICA')      return (jc.vOk + jc.faltantes) + ' de ' + jc.oArq + ' arquivo(s) inspecionados';
+  if (fase === 'CENSO_DESTINO') return jc.dArq + ' arquivo(s) recontados no destino ate aqui';
+  return '-';
+}
+
+// ====================== FASE DE CENSO (origem e destino) ======================
+// Conta arquivos por pasta, de forma resumivel. Cada pasta e contada de modo atomico:
+// se o tempo estourar no meio de uma pasta, a contagem parcial e descartada e a pasta
+// e recontada na proxima execucao (evita contagem dupla).
+function censo_(deadline, cont, jc, alvo) {
+  let pilha = JSON.parse(lerGrande_(K_PILHA) || '[]');
+  while (pilha.length > 0) {
+    if (Date.now() > deadline) { salvarGrande_(K_PILHA, JSON.stringify(pilha)); return false; }
+
+    const id = pilha[pilha.length - 1];
+    let arquivos = 0;
+    const novasPastas = [];
+    let token = null;
+    let estourou = false;
+
+    do {
+      if (Date.now() > deadline) { estourou = true; break; }
+      const r = listar_(id, token, 'files(id, mimeType)');
+      (r.files || []).forEach(function (f) {
+        if (f.mimeType === MIME_PASTA) novasPastas.push(f.id);
+        else arquivos++;
+      });
+      token = r.nextPageToken;
+    } while (token);
+
+    if (estourou) { salvarGrande_(K_PILHA, JSON.stringify(pilha)); return false; }
+
+    pilha.pop();
+    novasPastas.forEach(function (x) { pilha.push(x); });
+
+    if (alvo === 'origem') { jc.oArq += arquivos; jc.oPas += novasPastas.length; }
+    else                   { jc.dArq += arquivos; }
+
+    salvarGrande_(K_PILHA, JSON.stringify(pilha));
+    salvarCont_(cont);
+    talvezAtualizar_(cont);
+  }
+  return true;
+}
+
+// ====================== FASE DE COPIA / CONFERENCIA ======================
+// Processa a fila de pares de pastas. Antes de copiar, mapeia o que ja existe no
+// destino e pula: (a) o que tem a marca lzSrc; (b) copias legadas reconhecidas por
+// nome + tamanho (e, se MARCAR_LEGADO, grava a marca nelas para as proximas rodadas).
+// Idempotente: pode cair e reentrar na mesma pasta sem duplicar arquivos.
+function copiar_(deadline, cont, j, conferencia) {
+  const jc = cont.jobs[j];
+  let fila = JSON.parse(lerGrande_(K_FILA) || '[]');
+
+  while (fila.length > 0) {
+    if (Date.now() > deadline) { salvarGrande_(K_FILA, JSON.stringify(fila)); return false; }
+
+    const par = fila[0];
+    const mapa = mapearDestino_(par.d, deadline);
+    if (mapa === null) { salvarGrande_(K_FILA, JSON.stringify(fila)); return false; }
+
+    const novosPares = [];
+    let token = null;
+
+    do {
+      const r = listar_(par.s, token, 'files(id, name, mimeType, size, shortcutDetails)');
+      const itens = r.files || [];
+      for (let i = 0; i < itens.length; i++) {
+        const f = itens[i];
+
+        if (Date.now() > deadline) {
+          // pausa no meio da pasta: o mapeamento do destino garante que nada
+          // seja copiado duas vezes na retomada
+          salvarGrande_(K_FILA, JSON.stringify(fila));
+          salvarCont_(cont);
+          return false;
+        }
+
+        const caminho = par.p + '/' + f.name;
+
+        if (f.mimeType === MIME_PASTA) {
+          let destSub = mapa.pastasPorSrc[f.id] || mapa.pastasPorNome[f.name];
+          if (!destSub) {
+            destSub = criarPasta_(f.name, par.d, f.id);
+            if (!conferencia) log_(j, 'PASTA', caminho, f.id, destSub, 'subpasta criada');
+          }
+          novosPares.push({ s: f.id, d: destSub, p: caminho });
+
+        } else if (mapa.srcIds[f.id]) {
+          if (!conferencia) jc.pulados++;
+
+        } else {
+          const legado = casarPorNome_(mapa, f);
+          if (legado) {
+            if (!conferencia) jc.pulados++;
+            if (MARCAR_LEGADO && legado.id) {
+              try { Drive.Files.update({ appProperties: { lzSrc: f.id } }, legado.id, null, { supportsAllDrives: true }); } catch (e) {}
+            }
+          } else {
+            try {
+              copiarItem_(f, par.d);
+              if (conferencia) { jc.reparados++; log_(j, 'REPARO', caminho, f.id, par.d, 'arquivo faltante copiado'); }
+              else             { jc.copiados++; }
+            } catch (e) {
+              jc.erros++;
+              log_(j, 'ERRO', caminho, f.id, par.d, 'falha ao copiar: ' + String(e && e.message || e));
+            }
+          }
+        }
+      }
+      token = r.nextPageToken;
+    } while (token);
+
+    fila.shift();
+    fila = novosPares.concat(fila); // profundidade primeiro: mantem a fila pequena
+
+    salvarGrande_(K_FILA, JSON.stringify(fila));
+    salvarCont_(cont);
+    talvezAtualizar_(cont);
+    flushLog_();
+  }
+  return true;
+}
+
+// ====================== FASE DE VERIFICACAO (inspecao arquivo a arquivo) ======================
+// Somente leitura. Percorre a origem inteira e confere se CADA arquivo existe no
+// destino (marca lzSrc; reserva: nome + tamanho). Cada pasta e conferida de modo
+// atomico: se o tempo estourar no meio, o parcial e descartado e a pasta e refeita
+// na proxima execucao — os contadores nunca duplicam.
+function verificar_(deadline, cont, j) {
+  const jc = cont.jobs[j];
+  let fila = JSON.parse(lerGrande_(K_FILA) || '[]');
+
+  while (fila.length > 0) {
+    if (Date.now() > deadline) { salvarGrande_(K_FILA, JSON.stringify(fila)); return false; }
+
+    const par = fila[0];
+    let mapa = null;
+    if (par.d) {
+      mapa = mapearDestino_(par.d, deadline);
+      if (mapa === null) { salvarGrande_(K_FILA, JSON.stringify(fila)); return false; }
+    }
+
+    let okP = 0, faltP = 0;
+    const linhas = [];
+    const novos = [];
+    let token = null;
+    let estourou = false;
+
+    do {
+      if (Date.now() > deadline) { estourou = true; break; }
+      const r = listar_(par.s, token, 'files(id, name, mimeType, size)');
+      const itens = r.files || [];
+      for (let i = 0; i < itens.length; i++) {
+        const f = itens[i];
+        const caminho = par.p + '/' + f.name;
+
+        if (f.mimeType === MIME_PASTA) {
+          const dSub = mapa ? (mapa.pastasPorSrc[f.id] || mapa.pastasPorNome[f.name] || null) : null;
+          if (!dSub) linhas.push([caminho, f.id, par.d || '-', 'PASTA inteira ausente no destino — os arquivos dela contarao como faltantes']);
+          novos.push({ s: f.id, d: dSub, p: caminho });
+        } else {
+          const presente = mapa && (mapa.srcIds[f.id] || !!casarPorNome_(mapa, f));
+          if (presente) okP++;
+          else { faltP++; linhas.push([caminho, f.id, par.d || '-', 'arquivo nao encontrado no destino']); }
+        }
+      }
+      token = r.nextPageToken;
+    } while (token);
+
+    if (estourou) { salvarGrande_(K_FILA, JSON.stringify(fila)); return false; } // descarta o parcial desta pasta
+
+    jc.vOk += okP;
+    jc.faltantes += faltP;
+    linhas.forEach(function (l) { log_(j, 'FALTANTE', l[0], l[1], l[2], l[3]); });
+
+    fila.shift();
+    fila = novos.concat(fila);
+
+    salvarGrande_(K_FILA, JSON.stringify(fila));
+    salvarCont_(cont);
+    talvezAtualizar_(cont);
+    flushLog_();
+  }
+  return true;
+}
+
+// Le o conteudo atual de uma pasta do destino para deduplicacao/conferencia.
+// Retorna null se o tempo estourar no meio (nenhum progresso perdido).
+function mapearDestino_(destId, deadline) {
+  const srcIds = {};
+  const pastasPorSrc = {};
+  const pastasPorNome = {};
+  const arqPorNome = {};
+  let token = null;
+  do {
+    if (Date.now() > deadline) return null;
+    const r = listar_(destId, token, 'files(id, name, mimeType, size, appProperties)');
+    (r.files || []).forEach(function (f) {
+      const marca = f.appProperties && f.appProperties.lzSrc;
+      if (f.mimeType === MIME_PASTA) {
+        if (marca) pastasPorSrc[marca] = f.id;
+        pastasPorNome[f.name] = f.id;
+      } else if (marca) {
+        srcIds[marca] = true;
+      } else {
+        // arquivos sem marca (copias antigas/manuais) entram na reserva por nome+tamanho
+        if (!arqPorNome[f.name]) arqPorNome[f.name] = [];
+        arqPorNome[f.name].push({ id: f.id, size: (f.size === undefined || f.size === null) ? -1 : parseInt(f.size, 10) });
+      }
+    });
+    token = r.nextPageToken;
+  } while (token);
+  return { srcIds: srcIds, pastasPorSrc: pastasPorSrc, pastasPorNome: pastasPorNome, arqPorNome: arqPorNome };
+}
+
+// Reserva de correspondencia por nome + tamanho (consome o item casado para que
+// dois arquivos iguais na origem nao "dividam" uma unica copia no destino).
+function casarPorNome_(mapa, f) {
+  const arr = mapa.arqPorNome[f.name];
+  if (!arr || arr.length === 0) return null;
+  const sf = (f.size === undefined || f.size === null) ? -1 : parseInt(f.size, 10);
+  for (let i = 0; i < arr.length; i++) {
+    const e = arr[i];
+    if (e.size < 0 || sf < 0 || e.size === sf) { arr.splice(i, 1); return e; }
+  }
+  return null;
+}
+
+function copiarItem_(f, destId) {
+  if (f.mimeType === MIME_ATALHO) {
+    const alvo = f.shortcutDetails && f.shortcutDetails.targetId;
+    if (!alvo) throw new Error('atalho sem destino identificavel');
+    api_(function () {
+      return Drive.Files.create({
+        name: f.name,
+        mimeType: MIME_ATALHO,
+        parents: [destId],
+        appProperties: { lzSrc: f.id },
+        shortcutDetails: { targetId: alvo }
+      }, null, { supportsAllDrives: true });
+    });
+  } else {
+    api_(function () {
+      return Drive.Files.copy(
+        { name: f.name, parents: [destId], appProperties: { lzSrc: f.id } },
+        f.id,
+        { supportsAllDrives: true }
+      );
+    });
+  }
+}
+
+// ====================== ESPELHOS ======================
+// Backup: reutiliza (ou cria) a pasta espelho "<nome da origem> (backup)" no destino.
+function resolverEspelhoBackup_(origem, destinoId) {
+  const esp = localizarEspelho_(origem, destinoId);
+  if (esp) {
+    if (esp.como !== 'marca do LazyDrive') {
+      try { Drive.Files.update({ appProperties: { lzSrc: origem.id } }, esp.id, null, { supportsAllDrives: true }); } catch (e) {}
+    }
+    return esp.id;
+  }
+  return criarPasta_(origem.name + ' (backup)', destinoId, origem.id);
+}
+
+// Localiza um espelho existente dentro do destino: (1) pela marca lzSrc;
+// (2) pelo nome fixo "<origem> (backup)"; (3) por backup datado de versoes antigas.
+function localizarEspelho_(origem, destinoId) {
+  const pastas = listarPastas_(destinoId);
+  for (let i = 0; i < pastas.length; i++) {
+    const m = pastas[i].appProperties && pastas[i].appProperties.lzSrc;
+    if (m === origem.id) return { id: pastas[i].id, como: 'marca do LazyDrive' };
+  }
+  const nomeFixo = origem.name + ' (backup)';
+  for (let i = 0; i < pastas.length; i++) {
+    if (pastas[i].name === nomeFixo) return { id: pastas[i].id, como: 'nome fixo "' + nomeFixo + '"' };
+  }
+  const prefixo = origem.name + ' (backup';
+  let melhor = null;
+  for (let i = 0; i < pastas.length; i++) {
+    if (pastas[i].name.indexOf(prefixo) === 0) {
+      if (!melhor || pastas[i].name > melhor.name) melhor = pastas[i];
+    }
+  }
+  if (melhor) return { id: melhor.id, como: 'backup datado "' + melhor.name + '"' };
+  return null;
+}
+
+function listarPastas_(pastaId) {
+  const out = [];
+  let token = null;
+  do {
+    const args = {
+      q: "'" + pastaId + "' in parents and trashed = false and mimeType = '" + MIME_PASTA + "'",
+      pageSize: 1000,
+      fields: 'nextPageToken, files(id, name, appProperties)',
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+      corpora: 'allDrives'
+    };
+    if (token) args.pageToken = token;
+    const r = api_(function () { return Drive.Files.list(args); });
+    (r.files || []).forEach(function (f) { out.push(f); });
+    token = r.nextPageToken;
+  } while (token);
+  return out;
 }
 
 // ====================== HELPERS DRIVE ======================
-function listarFilhos_(folderId, pageToken) {
-  const arquivos = [];
-  const pastas = [];
-  const resp = Drive.Files.list({
-    q: "'" + folderId + "' in parents and trashed = false",
-    pageSize: BATCH_LIMIT,
-    pageToken: pageToken || null,
-    fields: 'nextPageToken, files(id, name, mimeType)',
+function listar_(pastaId, token, fields) {
+  const args = {
+    q: "'" + pastaId + "' in parents and trashed = false",
+    pageSize: PAGE_SIZE,
+    fields: 'nextPageToken, ' + fields,
     supportsAllDrives: true,
     includeItemsFromAllDrives: true,
     corpora: 'allDrives'
-  });
-  (resp.files || []).forEach(function (f) {
-    if (f.mimeType === 'application/vnd.google-apps.folder') {
-      pastas.push({ id: f.id, name: f.name });
-    } else {
-      arquivos.push({ id: f.id, name: f.name });
-    }
-  });
-  return { arquivos: arquivos, pastas: pastas, nextPageToken: resp.nextPageToken || null };
+  };
+  if (token) args.pageToken = token;
+  return api_(function () { return Drive.Files.list(args); });
 }
 
-function contarArquivos_(folderId) {
-  let total = 0;
-  const pilha = [folderId];
-  while (pilha.length > 0) {
-    const id = pilha.pop();
-    let token = null;
-    do {
-      const resp = Drive.Files.list({
-        q: "'" + id + "' in parents and trashed = false",
-        pageSize: 1000,
-        pageToken: token,
-        fields: 'nextPageToken, files(id, mimeType)',
-        supportsAllDrives: true,
-        includeItemsFromAllDrives: true,
-        corpora: 'allDrives'
-      });
-      (resp.files || []).forEach(function (f) {
-        if (f.mimeType === 'application/vnd.google-apps.folder') pilha.push(f.id);
-        else total++;
-      });
-      token = resp.nextPageToken;
-    } while (token);
-  }
-  return total;
-}
-
-function criarSubpasta_(nome, parentId) {
-  const novo = Drive.Files.create({
-    name: nome,
-    mimeType: 'application/vnd.google-apps.folder',
-    parents: [parentId]
-  }, null, { supportsAllDrives: true });
+function criarPasta_(nome, parentId, srcId) {
+  const meta = { name: nome, mimeType: MIME_PASTA, parents: [parentId] };
+  if (srcId) meta.appProperties = { lzSrc: srcId };
+  const novo = api_(function () { return Drive.Files.create(meta, null, { supportsAllDrives: true }); });
   return novo.id;
 }
 
-function obterPasta_(id) {
-  return Drive.Files.get(id, { supportsAllDrives: true, fields: 'id, name, mimeType' });
+// Executa uma chamada de API com ate RETENTATIVAS tentativas e backoff exponencial
+// para erros transitorios (rate limit, 429, 500, 502, 503, timeout).
+function api_(fn) {
+  let espera = 1000;
+  for (let i = 1; i <= RETENTATIVAS; i++) {
+    try {
+      return fn();
+    } catch (e) {
+      const msg = String(e && e.message || e);
+      const transitorio = /rate limit|too many|quota|429|500|502|503|timed? ?out|internal|backend/i.test(msg);
+      if (!transitorio || i === RETENTATIVAS) throw e;
+      Utilities.sleep(espera + Math.floor(Math.random() * 500));
+      espera *= 2;
+    }
+  }
 }
 
-// ====================== LOG ======================
-function criarPlanilhaLog_(nome, parentId) {
-  const ss = SpreadsheetApp.create(nome);
-  const sheet = ss.getActiveSheet();
-  sheet.setName('log');
-  sheet.appendRow(['Data/Hora', 'Tipo', 'Item', 'ID Origem', 'ID Destino', 'Status']);
-  sheet.getRange(1, 1, 1, 6).setFontWeight('bold');
-  sheet.setFrozenRows(1);
-  sheet.setColumnWidth(1, 150);
-  sheet.setColumnWidth(3, 280);
-  sheet.setColumnWidth(6, 320);
-  // move a planilha para dentro da pasta de destino
+// Impede configuracao perigosa: destino igual ou dentro da origem geraria copia infinita.
+function validarPar_(origemId, destinoId) {
+  if (origemId === destinoId) throw new Error('Origem e destino sao a mesma pasta.');
+  let atual = destinoId;
+  for (let i = 0; i < 30; i++) {
+    const f = api_(function () { return Drive.Files.get(atual, { supportsAllDrives: true, fields: 'id, parents' }); });
+    const pais = f.parents || [];
+    if (pais.length === 0) return;
+    if (pais.indexOf(origemId) >= 0) {
+      throw new Error('A pasta de DESTINO esta dentro da ORIGEM — isso causaria copia infinita. Escolha outro destino.');
+    }
+    atual = pais[0];
+  }
+}
+
+// ====================== ESTADO PERSISTENTE ======================
+function jobVazio_() {
+  return { modo: 'backup', no: '?', nd: '?', root: '', status: 'AGUARDANDO', obs: '',
+           oArq: 0, oPas: 0, copiados: 0, pulados: 0, reparados: 0, vOk: 0,
+           faltantes: 0, erros: 0, dArq: 0 };
+}
+
+function jobAtual_() { return parseInt(P.getProperty(K_JOB) || '0', 10); }
+
+function lerCont_() {
+  const bruto = P.getProperty(K_CONT);
+  const base = { execs: 0, t0: Date.now(), jobs: [] };
+  if (!bruto) return base;
   try {
+    const c = Object.assign(base, JSON.parse(bruto));
+    c.jobs = (c.jobs || []).map(function (jc) { return Object.assign(jobVazio_(), jc); });
+    return c;
+  } catch (e) { return base; }
+}
+
+function salvarCont_(cont) { P.setProperty(K_CONT, JSON.stringify(cont)); }
+
+// Grava strings grandes fragmentadas em blocos de PROP_CHUNK (limite: 9 KB por valor).
+function salvarGrande_(base, str) {
+  const n = Math.max(1, Math.ceil(str.length / PROP_CHUNK));
+  const anterior = parseInt(P.getProperty(base + '_n') || '0', 10);
+  const kv = {};
+  kv[base + '_n'] = String(n);
+  for (let i = 0; i < n; i++) kv[base + '_' + i] = str.substr(i * PROP_CHUNK, PROP_CHUNK);
+  P.setProperties(kv);
+  for (let i = n; i < anterior; i++) P.deleteProperty(base + '_' + i);
+}
+
+function lerGrande_(base) {
+  const n = parseInt(P.getProperty(base + '_n') || '0', 10);
+  if (!n) return null;
+  let s = '';
+  for (let i = 0; i < n; i++) s += P.getProperty(base + '_' + i) || '';
+  return s;
+}
+
+function truncar_(s, n) { s = String(s || ''); return s.length > n ? s.substring(0, n - 1) + '…' : s; }
+
+// ====================== PLANILHA DE RELATORIO ======================
+// Aba "resumo": status geral (linhas 1-5) + tabela com uma linha por par (a partir da 8).
+// Aba "detalhe": trilha completa de eventos, com o numero do par em cada linha.
+function criarPlanilha_(nome, parentId, cont) {
+  const ss = SpreadsheetApp.create(nome);
+  const shR = ss.getActiveSheet();
+  shR.setName('resumo');
+  montarResumo_(shR, cont);
+
+  const shD = ss.insertSheet('detalhe');
+  shD.getRange(1, 1, 1, 7)
+     .setValues([['Data/Hora', 'Par', 'Tipo', 'Item / Caminho', 'ID Origem', 'ID Destino', 'Status']])
+     .setFontWeight('bold');
+  shD.setFrozenRows(1);
+  shD.setColumnWidth(1, 160);
+  shD.setColumnWidth(2, 46);
+  shD.setColumnWidth(3, 120);
+  shD.setColumnWidth(4, 320);
+  shD.setColumnWidth(7, 360);
+  SpreadsheetApp.flush();
+
+  // move a planilha para a pasta escolhida removendo os pais reais
+  try {
+    const meta = Drive.Files.get(ss.getId(), { fields: 'parents', supportsAllDrives: true });
     Drive.Files.update({}, ss.getId(), null, {
       addParents: parentId,
-      removeParents: 'root',
+      removeParents: (meta.parents || []).join(','),
       supportsAllDrives: true
     });
-  } catch (e) { /* se nao conseguir mover, fica na raiz do Meu Drive */ }
+  } catch (e) {
+    console.warn('LazyDrive: nao consegui mover a planilha de relatorio para o destino: ' + e);
+  }
   return ss.getId();
 }
 
-function log_(tipo, item, idOrigem, idDestino, status) {
+function montarResumo_(sh, cont) {
+  sh.getRange(1, 1).setValue('LAZYDRIVE — RELATORIO DO LOTE').setFontWeight('bold');
+  sh.getRange(2, 1, 4, 1).setValues([['Status geral'], ['Ultima atualizacao'], ['Execucoes'], ['Inicio do lote']]).setFontWeight('bold');
+  sh.getRange(2, 2).setValue('INICIANDO...').setBackground('#fef7e0');
+  sh.getRange(3, 2).setValue(new Date());
+  sh.getRange(4, 2).setValue(cont.execs || 0);
+  sh.getRange(5, 2).setValue(new Date(cont.t0 || Date.now()));
+
+  const cab = ['Par', 'Modo', 'Origem', 'Destino', 'Espelho (ID)', 'Arq. na origem', 'Copiados',
+               'Ja existiam', 'Recuperados', 'Verificados OK', 'Faltantes', 'Erros',
+               'Recontagem destino', 'Progresso', 'Status do par'];
+  sh.getRange(R_TAB_CAB, 1, 1, cab.length).setValues([cab]).setFontWeight('bold');
+
+  const linhas = (cont.jobs || []).map(function (jc, i) {
+    return [i + 1, (jc.modo === 'verificar') ? 'Somente verificar' : 'Backup + verificacao',
+            jc.no, jc.nd, '', 0, 0, 0, 0, 0, 0, jc.erros || 0, 0, '0%', statusTxt_(jc)];
+  });
+  if (linhas.length) sh.getRange(R_TAB_INI, 1, linhas.length, cab.length).setValues(linhas);
+
+  sh.setFrozenRows(R_TAB_CAB);
+  sh.setColumnWidth(3, 200);
+  sh.setColumnWidth(4, 200);
+  sh.setColumnWidth(5, 190);
+  sh.setColumnWidth(15, 260);
+}
+
+function statusTxt_(jc) {
+  if (jc.status === 'AGUARDANDO') return 'AGUARDANDO';
+  if (jc.status === 'ANDAMENTO')  return 'EM ANDAMENTO';
+  if (jc.status === 'CONFIG')     return 'ERRO DE CONFIGURACAO' + (jc.obs ? (' — ' + jc.obs) : '');
+  if (jc.status === 'OK')  return (jc.modo === 'verificar') ? 'VERIFICADO — 100% PRESENTE' : 'BACKUP 100% COMPLETO';
+  if (jc.status === 'PEND') return 'PENDENTE — ' + jc.faltantes + ' faltante(s)';
+  return jc.status;
+}
+
+function corStatus_(jc) {
+  if (jc.status === 'OK') return '#e6f4ea';
+  if (jc.status === 'PEND' || jc.status === 'CONFIG') return '#fce8e6';
+  if (jc.status === 'ANDAMENTO') return '#fef7e0';
+  return '#ffffff';
+}
+
+// Abre uma aba do relatorio; se a planilha nao existir ou nao abrir, recria sozinho.
+function obterAba_(nome) {
+  if (__abas[nome]) return __abas[nome];
+  const id = P.getProperty(K_LOG);
+  if (id) {
+    try {
+      const sh = SpreadsheetApp.openById(id).getSheetByName(nome);
+      if (sh) { __abas[nome] = sh; return sh; }
+    } catch (e) { /* recria abaixo */ }
+  }
   try {
-    const id = P.getProperty(K_LOGID);
-    if (!id) return;
-    SpreadsheetApp.openById(id).getSheetByName('log')
-      .appendRow([new Date(), tipo, item, idOrigem, idDestino, status]);
-  } catch (e) { /* nao interrompe o backup por falha de log */ }
+    const cont = lerCont_();
+    let parent = LOG_FOLDER_ID || (JOBS[0] && JOBS[0].destino) || '';
+    const novoId = criarPlanilha_('LazyDrive relatorio (recriado) ' + nowStamp_(), parent, cont);
+    P.setProperty(K_LOG, novoId);
+    __abas = {};
+    __abas[nome] = SpreadsheetApp.openById(novoId).getSheetByName(nome);
+    console.warn('LazyDrive: planilha de relatorio recriada automaticamente.');
+    return __abas[nome];
+  } catch (e) {
+    console.warn('LazyDrive: impossivel criar/abrir a planilha de relatorio: ' + e);
+    return null;
+  }
+}
+
+// Grava um evento na aba "detalhe". Eventos criticos vao na hora; PASTA/REPARO/FALTANTE
+// vao em pequenos lotes (mais rapido), sempre confirmados com SpreadsheetApp.flush().
+function log_(job, tipo, item, idOrigem, idDestino, status) {
+  __logBuffer.push([new Date(), (job === null || job < 0) ? '-' : (job + 1), tipo, item, idOrigem, idDestino, status]);
+  if (TIPOS_IMEDIATOS[tipo] || __logBuffer.length >= 25) flushLog_();
+}
+
+function flushLog_() {
+  if (__logBuffer.length === 0) return;
+  const sh = obterAba_('detalhe');
+  if (!sh) {
+    if (__logBuffer.length > 300) __logBuffer.splice(0, __logBuffer.length - 300);
+    return; // tenta de novo na proxima gravacao
+  }
+  try {
+    const prox = Math.max(sh.getLastRow(), 1) + 1;
+    sh.getRange(prox, 1, __logBuffer.length, 7).setValues(__logBuffer);
+    SpreadsheetApp.flush(); // confirma de verdade: sem isso, o corte dos 6 min descarta o cache
+    __logBuffer = [];
+  } catch (e) {
+    console.warn('LazyDrive: falha ao gravar o detalhe (vou tentar de novo): ' + e);
+    __abas = {};
+    if (__logBuffer.length > 300) __logBuffer.splice(0, __logBuffer.length - 300);
+  }
+}
+
+function atualizarResumoGeral_(cont, statusTxt, corFundo) {
+  const sh = obterAba_('resumo');
+  if (!sh) return;
+  try {
+    sh.getRange(2, 2).setValue(statusTxt).setBackground(corFundo || '#fef7e0');
+    sh.getRange(3, 2).setValue(new Date());
+    sh.getRange(4, 2).setValue(cont.execs || 0);
+    SpreadsheetApp.flush();
+    __tResumo = Date.now();
+  } catch (e) {
+    console.warn('LazyDrive: falha ao atualizar o resumo geral: ' + e);
+    __abas = {};
+  }
+}
+
+function atualizarResumoJob_(cont, j) {
+  const sh = obterAba_('resumo');
+  if (!sh || !cont.jobs[j]) return;
+  try {
+    const jc = cont.jobs[j];
+    let pct = 0;
+    if (jc.oArq > 0) pct = Math.min(100, Math.round(((jc.vOk || jc.copiados) / jc.oArq) * 10000) / 100);
+    const vals = [[jc.root, jc.oArq, jc.copiados, jc.pulados, jc.reparados, jc.vOk,
+                   jc.faltantes, jc.erros, jc.dArq, pct + '%', statusTxt_(jc)]];
+    sh.getRange(R_TAB_INI + j, 5, 1, 11).setValues(vals);
+    sh.getRange(R_TAB_INI + j, 15).setBackground(corStatus_(jc));
+    SpreadsheetApp.flush();
+  } catch (e) {
+    console.warn('LazyDrive: falha ao atualizar a linha do par ' + (j + 1) + ': ' + e);
+    __abas = {};
+  }
+}
+
+function concluirJobRow_(cont, j) { atualizarResumoJob_(cont, j); }
+
+// Atualizacao periodica do resumo durante o trabalho pesado (no maximo a cada 20 s).
+function talvezAtualizar_(cont) {
+  if (Date.now() - __tResumo < RESUMO_MS) return;
+  const j = Math.min(jobAtual_(), JOBS.length - 1);
+  atualizarResumoGeral_(cont, textoGeral_(j, P.getProperty(K_FASE)), '#fef7e0');
+  atualizarResumoJob_(cont, j);
 }
 
 // ====================== GATILHOS / UTIL ======================
-function agendarRetomada_() {
-  limparGatilhos_();
-  ScriptApp.newTrigger('retomarBackup_').timeBased().after(60 * 1000).create();
+// Gatilho de seguranca recorrente: retoma o lote mesmo apos falhas abruptas.
+function garantirWatchdog_() {
+  const existe = ScriptApp.getProjectTriggers().some(function (t) {
+    return t.getHandlerFunction() === 'watchdogBackup_';
+  });
+  if (!existe) ScriptApp.newTrigger('watchdogBackup_').timeBased().everyMinutes(WATCHDOG_MIN).create();
+}
+
+// Gatilho rapido de retomada apos pausa controlada.
+function agendarRetomadaRapida_(minutos) {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'retomarBackup_') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('retomarBackup_').timeBased().after(minutos * 60 * 1000).create();
 }
 
 function limparGatilhos_() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
-    if (t.getHandlerFunction() === 'retomarBackup_') ScriptApp.deleteTrigger(t);
+    const h = t.getHandlerFunction();
+    if (h === 'retomarBackup_' || h === 'watchdogBackup_') ScriptApp.deleteTrigger(t);
   });
 }
 
@@ -504,20 +1326,18 @@ function nowStamp_() {
     Session.getScriptTimeZone() || 'America/Fortaleza', 'yyyy-MM-dd_HH-mm');
 }
 
-function abortarBackup() {
-  limparGatilhos_();
-  P.deleteAllProperties();
-  Logger.log('Backup abortado e estado limpo.');
-}
-`;
+</script>
 
-/* ====================== LÓGICA DA PÁGINA ====================== */
-const $ = function (id) { return document.getElementById(id); };
+<script>
+/* ====================== LOGICA DA PAGINA ====================== */
+var $ = function (id) { return document.getElementById(id); };
+var MAX_PARES = 12;
+var HIST_KEY = 'lazydrive_hist_v9';
 
 function extractId(input) {
   if (!input) return '';
   input = input.trim();
-  let m = input.match(/\/folders\/([-\w]{15,})/) || input.match(/[?&]id=([-\w]{15,})/);
+  var m = input.match(/\/folders\/([-\w]{15,})/) || input.match(/[?&]id=([-\w]{15,})/);
   if (m) return m[1];
   m = input.match(/^([-\w]{15,})$/);
   if (m) return m[1];
@@ -525,8 +1345,90 @@ function extractId(input) {
   return m ? m[0] : '';
 }
 
+/* ---------- linhas de pares ---------- */
+function addPair(prefill) {
+  var pairs = $('pairs');
+  if (pairs.children.length >= MAX_PARES) return null;
+
+  var div = document.createElement('div');
+  div.className = 'pair modo-backup';
+  div.innerHTML =
+    '<div class="pair-head">' +
+      '<span class="pair-num"></span>' +
+      '<div class="pair-tools">' +
+        '<div class="seg">' +
+          '<button type="button" class="b-backup on-backup">Backup + verifica&ccedil;&atilde;o</button>' +
+          '<button type="button" class="b-verify">Somente verificar</button>' +
+        '</div>' +
+        '<button type="button" class="rm">Remover</button>' +
+      '</div>' +
+    '</div>' +
+    '<div class="pair-grid">' +
+      '<div class="field">' +
+        '<label>Pasta de ORIGEM <span class="hint">O que ser&aacute; copiado ou conferido.</span></label>' +
+        '<input type="text" class="in-src" autocomplete="off" spellcheck="false" placeholder="https://drive.google.com/drive/folders/...">' +
+        '<div class="resolved r-src"></div>' +
+      '</div>' +
+      '<div class="field">' +
+        '<label>Pasta de DESTINO <span class="hint">Onde o espelho vive (ou onde conferir).</span></label>' +
+        '<input type="text" class="in-dst" autocomplete="off" spellcheck="false" placeholder="https://drive.google.com/drive/folders/...">' +
+        '<div class="resolved r-dst"></div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="modo-desc"></div>';
+
+  var src = div.querySelector('.in-src');
+  var dst = div.querySelector('.in-dst');
+  src.addEventListener('input', function () { liveResolve(src, div.querySelector('.r-src')); });
+  dst.addEventListener('input', function () { liveResolve(dst, div.querySelector('.r-dst')); });
+
+  div.querySelector('.b-backup').addEventListener('click', function () { setModo(div, 'backup'); });
+  div.querySelector('.b-verify').addEventListener('click', function () { setModo(div, 'verificar'); });
+  div.querySelector('.rm').addEventListener('click', function () {
+    if ($('pairs').children.length <= 1) return;
+    div.remove();
+    renumber();
+  });
+
+  if (prefill) {
+    src.value = prefill.origem || '';
+    dst.value = prefill.destino || '';
+    liveResolve(src, div.querySelector('.r-src'));
+    liveResolve(dst, div.querySelector('.r-dst'));
+    setModo(div, prefill.modo === 'verificar' ? 'verificar' : 'backup');
+  } else {
+    setModo(div, 'backup');
+  }
+
+  pairs.appendChild(div);
+  renumber();
+  return div;
+}
+
+function setModo(div, modo) {
+  div.dataset.modo = modo;
+  div.classList.toggle('modo-verificar', modo === 'verificar');
+  div.classList.toggle('modo-backup', modo !== 'verificar');
+  var bB = div.querySelector('.b-backup');
+  var bV = div.querySelector('.b-verify');
+  bB.classList.toggle('on-backup', modo !== 'verificar');
+  bV.classList.toggle('on-verify', modo === 'verificar');
+  div.querySelector('.modo-desc').innerHTML = (modo === 'verificar')
+    ? '<b>Somente verificar:</b> nada &eacute; copiado nem alterado — o script apenas confere, arquivo a arquivo, se tudo o que existe na origem est&aacute; presente no destino, e lista cada faltante.'
+    : '<b>Backup + verifica&ccedil;&atilde;o:</b> copia o que falta para a pasta espelho &laquo;nome da origem&raquo; (backup) dentro do destino, repara faltantes e fecha com inspe&ccedil;&atilde;o arquivo a arquivo.';
+}
+
+function renumber() {
+  var rows = $('pairs').children;
+  for (var i = 0; i < rows.length; i++) {
+    rows[i].querySelector('.pair-num').textContent = 'PAR ' + (i + 1);
+    rows[i].querySelector('.rm').style.visibility = (rows.length > 1) ? 'visible' : 'hidden';
+  }
+  $('add').disabled = rows.length >= MAX_PARES;
+}
+
 function liveResolve(inputEl, outEl) {
-  const id = extractId(inputEl.value);
+  var id = extractId(inputEl.value);
   if (!inputEl.value.trim()) {
     outEl.textContent = '';
     outEl.classList.remove('err');
@@ -538,30 +1440,87 @@ function liveResolve(inputEl, outEl) {
     outEl.classList.remove('err');
     inputEl.classList.remove('bad');
   } else {
-    outEl.textContent = 'Link inválido — cole o link completo da pasta do Drive.';
+    outEl.textContent = 'Link inv\u00e1lido — cole o link completo da pasta do Drive.';
     outEl.classList.add('err');
     inputEl.classList.add('bad');
   }
   return id;
 }
 
-$('src').addEventListener('input', function () { liveResolve($('src'), $('src-id')); });
-$('dst').addEventListener('input', function () { liveResolve($('dst'), $('dst-id')); });
+function marcarErro(inputEl, outEl, msg) {
+  outEl.textContent = msg;
+  outEl.classList.add('err');
+  inputEl.classList.add('bad');
+}
 
-$('gen').addEventListener('click', function () {
-  const srcId = liveResolve($('src'), $('src-id'));
-  const dstId = liveResolve($('dst'), $('dst-id'));
-  if (!srcId) { $('src').classList.add('bad'); $('src').focus(); return; }
-  if (!dstId) { $('dst').classList.add('bad'); $('dst').focus(); return; }
-  if (srcId === dstId) {
-    $('dst-id').textContent = 'Origem e destino não podem ser a mesma pasta.';
-    $('dst-id').classList.add('err'); $('dst').classList.add('bad'); return;
+/* ---------- coleta e geracao ---------- */
+function gatherJobs() {
+  var rows = $('pairs').children;
+  var jobs = [];
+  var vistos = {};
+  var primeiroErro = null;
+
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i];
+    var inS = row.querySelector('.in-src'), rS = row.querySelector('.r-src');
+    var inD = row.querySelector('.in-dst'), rD = row.querySelector('.r-dst');
+    var o = liveResolve(inS, rS);
+    var d = liveResolve(inD, rD);
+
+    if (!o) { marcarErro(inS, rS, inS.value.trim() ? 'Link inv\u00e1lido — cole o link completo da pasta do Drive.' : 'Informe a pasta de origem.'); if (!primeiroErro) primeiroErro = inS; }
+    if (!d) { marcarErro(inD, rD, inD.value.trim() ? 'Link inv\u00e1lido — cole o link completo da pasta do Drive.' : 'Informe a pasta de destino.'); if (!primeiroErro) primeiroErro = inD; }
+    if (o && d && o === d) { marcarErro(inD, rD, 'Origem e destino n\u00e3o podem ser a mesma pasta.'); if (!primeiroErro) primeiroErro = inD; }
+
+    var modo = (row.dataset.modo === 'verificar') ? 'verificar' : 'backup';
+    if (o && d && o !== d) {
+      var chave = o + '|' + d + '|' + modo;
+      if (vistos[chave]) { marcarErro(inD, rD, 'Par duplicado — j\u00e1 existe acima com o mesmo modo.'); if (!primeiroErro) primeiroErro = inD; }
+      else { vistos[chave] = true; jobs.push({ origem: o, destino: d, modo: modo }); }
+    }
   }
 
-  const code = TPL.split('__SOURCE_ID__').join(srcId).split('__DEST_ID__').join(dstId);
+  if (primeiroErro) { primeiroErro.focus(); return null; }
+  return jobs;
+}
+
+function jobsCode(jobs) {
+  var linhas = jobs.map(function (j) {
+    return "  { origem: '" + j.origem + "', destino: '" + j.destino + "', modo: '" + j.modo + "' }";
+  });
+  return '[\n' + linhas.join(',\n') + '\n]';
+}
+
+function templateGs() {
+  return $('tpl-gs').textContent.replace(/^\n/, '');
+}
+
+$('gen').addEventListener('click', function () {
+  var jobs = gatherJobs();
+  if (!jobs || !jobs.length) return;
+
+  var code = templateGs().split('__JOBS__').join(jobsCode(jobs));
   $('out').value = code;
-  $('m-src').textContent = srcId;
-  $('m-dst').textContent = dstId;
+
+  var apelido = $('apelido').value.trim();
+  var nB = jobs.filter(function (j) { return j.modo === 'backup'; }).length;
+  var nV = jobs.length - nB;
+  $('m-apelido').textContent = apelido || '(sem apelido)';
+  $('m-count').textContent = jobs.length + ' par(es) — ' + nB + ' backup + verifica\u00e7\u00e3o, ' + nV + ' somente verificar';
+
+  var mp = $('m-pairs');
+  mp.textContent = '';
+  jobs.forEach(function (j, i) {
+    var linha = document.createElement('div');
+    var badge = document.createElement('span');
+    badge.className = (j.modo === 'verificar') ? 'modo-v' : 'modo-b';
+    badge.textContent = (j.modo === 'verificar') ? '[verificar] ' : '[backup] ';
+    linha.appendChild(document.createTextNode((i + 1) + '. '));
+    linha.appendChild(badge);
+    linha.appendChild(document.createTextNode(j.origem + ' \u2192 ' + j.destino));
+    mp.appendChild(linha);
+  });
+
+  salvarHistorico(apelido, jobs);
 
   $('view-input').classList.add('hidden');
   $('view-result').classList.remove('hidden');
@@ -569,9 +1528,14 @@ $('gen').addEventListener('click', function () {
 });
 
 $('clear').addEventListener('click', function () {
-  $('src').value = ''; $('dst').value = '';
-  liveResolve($('src'), $('src-id')); liveResolve($('dst'), $('dst-id'));
-  $('src').focus();
+  $('pairs').textContent = '';
+  addPair();
+  $('apelido').value = '';
+});
+
+$('add').addEventListener('click', function () {
+  var novo = addPair();
+  if (novo) novo.querySelector('.in-src').focus();
 });
 
 $('back').addEventListener('click', function () {
@@ -581,11 +1545,11 @@ $('back').addEventListener('click', function () {
 });
 
 $('copy').addEventListener('click', function () {
-  const ta = $('out');
-  const done = function () {
-    const lbl = $('copy-label'); const btn = $('copy');
+  var ta = $('out');
+  var done = function () {
+    var lbl = $('copy-label'); var btn = $('copy');
     lbl.textContent = 'Copiado'; btn.classList.add('done');
-    setTimeout(function () { lbl.textContent = 'Copiar código'; btn.classList.remove('done'); }, 2000);
+    setTimeout(function () { lbl.textContent = 'Copiar c\u00f3digo'; btn.classList.remove('done'); }, 2000);
   };
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(ta.value).then(done).catch(function () {
@@ -595,6 +1559,119 @@ $('copy').addEventListener('click', function () {
     ta.focus(); ta.select(); document.execCommand('copy'); done();
   }
 });
+
+/* ---------- historico (localStorage deste navegador) ---------- */
+function lerHistorico() {
+  try {
+    var raw = localStorage.getItem(HIST_KEY);
+    var arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch (e) { return []; }
+}
+
+function gravarHistorico(arr) {
+  try { localStorage.setItem(HIST_KEY, JSON.stringify(arr)); } catch (e) { /* modo privado etc. */ }
+}
+
+function salvarHistorico(apelido, jobs) {
+  var arr = lerHistorico();
+  var sig = JSON.stringify(jobs);
+  arr = arr.filter(function (e) { return !(JSON.stringify(e.pares) === sig && (e.apelido || '') === (apelido || '')); });
+  arr.unshift({ id: Date.now(), ts: Date.now(), apelido: apelido || '', pares: jobs });
+  if (arr.length > 30) arr = arr.slice(0, 30);
+  gravarHistorico(arr);
+  renderHistorico();
+}
+
+function renderHistorico() {
+  var box = $('hist-list');
+  box.textContent = '';
+  var arr = lerHistorico();
+
+  if (!arr.length) {
+    var vazio = document.createElement('div');
+    vazio.className = 'hist-empty';
+    vazio.textContent = 'Nenhum lote gerado ainda. Ao clicar em "Gerar c\u00f3digo", o lote aparece aqui automaticamente.';
+    box.appendChild(vazio);
+    return;
+  }
+
+  arr.forEach(function (e) {
+    var nB = e.pares.filter(function (j) { return j.modo !== 'verificar'; }).length;
+    var nV = e.pares.length - nB;
+
+    var item = document.createElement('div');
+    item.className = 'hist-item';
+
+    var top = document.createElement('div');
+    top.className = 'hist-top';
+    var nome = document.createElement('span');
+    nome.className = 'hist-name';
+    nome.textContent = e.apelido || 'Lote sem apelido';
+    var data = document.createElement('span');
+    data.className = 'hist-date';
+    data.textContent = new Date(e.ts).toLocaleString('pt-BR');
+    top.appendChild(nome); top.appendChild(data);
+
+    var chips = document.createElement('div');
+    chips.className = 'hist-chips';
+    var c1 = document.createElement('span'); c1.className = 'chip'; c1.textContent = e.pares.length + ' par(es)';
+    chips.appendChild(c1);
+    if (nB) { var c2 = document.createElement('span'); c2.className = 'chip b'; c2.textContent = nB + ' backup'; chips.appendChild(c2); }
+    if (nV) { var c3 = document.createElement('span'); c3.className = 'chip v'; c3.textContent = nV + ' verificar'; chips.appendChild(c3); }
+
+    var lista = document.createElement('div');
+    lista.className = 'hist-pairs';
+    e.pares.forEach(function (j, i) {
+      var l = document.createElement('div');
+      var b = document.createElement('span');
+      b.className = (j.modo === 'verificar') ? 'modo-v' : 'modo-b';
+      b.textContent = (j.modo === 'verificar') ? '[verificar] ' : '[backup] ';
+      l.appendChild(document.createTextNode((i + 1) + '. '));
+      l.appendChild(b);
+      l.appendChild(document.createTextNode(j.origem + ' \u2192 ' + j.destino));
+      lista.appendChild(l);
+    });
+
+    var acoes = document.createElement('div');
+    acoes.className = 'hist-actions';
+    var bCarregar = document.createElement('button');
+    bCarregar.className = 'btn btn-ghost btn-sm';
+    bCarregar.textContent = 'Carregar no formul\u00e1rio';
+    bCarregar.addEventListener('click', function () {
+      $('pairs').textContent = '';
+      e.pares.forEach(function (j) { addPair(j); });
+      $('apelido').value = e.apelido || '';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    var bExcluir = document.createElement('button');
+    bExcluir.className = 'btn btn-ghost btn-sm';
+    bExcluir.textContent = 'Excluir';
+    bExcluir.addEventListener('click', function () {
+      gravarHistorico(lerHistorico().filter(function (x) { return x.id !== e.id; }));
+      renderHistorico();
+    });
+    acoes.appendChild(bCarregar); acoes.appendChild(bExcluir);
+
+    item.appendChild(top);
+    item.appendChild(chips);
+    item.appendChild(lista);
+    item.appendChild(acoes);
+    box.appendChild(item);
+  });
+}
+
+$('hist-clear').addEventListener('click', function () {
+  if (!lerHistorico().length) return;
+  if (confirm('Apagar todo o hist\u00f3rico de lotes deste navegador?')) {
+    gravarHistorico([]);
+    renderHistorico();
+  }
+});
+
+/* ---------- inicializacao ---------- */
+addPair();
+renderHistorico();
 </script>
 </body>
 </html>
